@@ -202,6 +202,15 @@ func TestSetMap(t *testing.T) {
 	`, target)
 }
 
+func TestSyntaxError(t *testing.T) {
+	text := `invalid key: "value"`
+	m := map[string]interface{}{}
+	err := jacl.Unmarshal(text, &m)
+	if err == nil {
+		t.Fatalf("should have failed")
+	}
+}
+
 func compare(t *testing.T, testName string, text string, target map[string]interface{}) {
 	m := map[string]interface{}{}
 	err := jacl.Unmarshal(text, &m)

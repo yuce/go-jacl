@@ -137,7 +137,19 @@ func parseInteger(text string) (interface{}, error) {
 	return strconv.ParseInt(text, 10, 64)
 }
 
-func Unmarshal(text string, v interface{}) error {
+func Unmarshal(text string, v interface{}) (err error) {
+	defer func(err *error) {
+		if r := recover(); r != nil {
+			switch rt := r.(type) {
+			case error:
+				*err = rt
+			case string:
+				*err = errors.New(rt)
+			default:
+				panic(rt)
+			}
+		}
+	}(&err)
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Ptr || rv.IsNil() {
 		return errors.New("non-nil pointer is required")
@@ -155,10 +167,22 @@ func Unmarshal(text string, v interface{}) error {
 	lexer := parser.NewJaclLexer(antlr.NewInputStream(text))
 	stream := antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel)
 	p := parser.NewJaclParser(stream)
-	p.AddErrorListener(antlr.NewDiagnosticErrorListener(true))
+	p.AddErrorListener(newErrorListener())
 	p.BuildParseTrees = true
 	listener := newJaclListener(rm)
 	antlr.ParseTreeWalkerDefault.Walk(listener, p.Config())
 
-	return nil
+	return err
+}
+
+type errorListener struct {
+	*antlr.DefaultErrorListener
+}
+
+func newErrorListener() *errorListener {
+	return new(errorListener)
+}
+
+func (el *errorListener) SyntaxError(recognizer antlr.Recognizer, offendingSymbol interface{}, line, column int, msg string, e antlr.RecognitionException) {
+	panic(fmt.Sprintf("syntax error: %s line: %d column: %d symbol: %s", msg, line, column, offendingSymbol))
 }
