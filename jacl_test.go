@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/yuce/jacl"
+	"github.com/yuce/go-jacl"
 )
 
 func TestEmpty(t *testing.T) {

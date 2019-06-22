@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/antlr/antlr4/runtime/Go/antlr"
-	"github.com/yuce/jacl/parser"
+	"github.com/yuce/go-jacl/parser"
 )
 
 const maxStack = 16
