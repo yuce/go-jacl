@@ -219,13 +219,27 @@ func unmarshalStruct(rm map[string]interface{}, v interface{}) error {
 				default:
 					// otherwise create and assign a slice of the given type.
 					sl := reflect.MakeSlice(field.Type, len(t), len(t))
-					for i, ti := range t {
-						sl.Index(i).Set(reflect.ValueOf(ti).Convert(elemType))
+					for i, tv := range t {
+						sl.Index(i).Set(reflect.ValueOf(tv).Convert(elemType))
 					}
 					value.Set(sl)
 				}
 			case map[string]interface{}:
-				value.Set(reflect.ValueOf(t))
+				elemType := field.Type.Elem()
+				switch elemType.Kind() {
+				case reflect.Interface:
+					// if this is a map of interface{}, just assign it.
+					value.Set(reflect.ValueOf(t))
+				default:
+					// otherwise create and assign a map of the given type.
+					sm := reflect.MakeMapWithSize(field.Type, len(t))
+					for tk, tv := range t {
+						tkv := reflect.ValueOf(tk)
+						tvv := reflect.ValueOf(tv).Convert(elemType)
+						sm.SetMapIndex(tkv, tvv)
+					}
+					value.Set(sm)
+				}
 			default:
 				return fmt.Errorf("jacl unmarshal error: don't know how to unmarshal field: '%s'", field.Name)
 			}

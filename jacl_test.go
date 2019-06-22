@@ -212,20 +212,33 @@ func TestSyntaxError(t *testing.T) {
 }
 
 func TestDecodeStruct(t *testing.T) {
+	// type oer
 	type person struct {
 		privateField string
-		String       string
-		Int          int `jacl:"int"`
-		Uint         uint
-		Bool         bool
-		Float        float64
-		Slice        []interface{} `jacl:"slice"`
-		StringSlice  []string
-		IntSlice     []int
-		UintSlice    []uint
-		BoolSlice    []bool
-		FloatSlice   []float64
-		Map          map[string]interface{}
+
+		String string
+		Int    int `jacl:"int"`
+		Uint   uint
+		Bool   bool
+		Float  float64
+
+		Slice       []interface{} `jacl:"slice"`
+		StringSlice []string
+		IntSlice    []int
+		UintSlice   []uint
+		BoolSlice   []bool
+		FloatSlice  []float64
+		MapSlice    []map[string]interface{}
+
+		Map       map[string]interface{}
+		StringMap map[string]string
+		IntMap    map[string]int
+		UintMap   map[string]uint
+		BoolMap   map[string]bool
+		FloatMap  map[string]float64
+		ListMap   map[string][]interface{}
+
+		StringSliceMap map[string][]string
 	}
 	p := person{}
 	text := `
@@ -234,17 +247,32 @@ func TestDecodeStruct(t *testing.T) {
 		Uint: 0xBEE423
 		Bool: false
 		Float: -3.14e10
+
 		slice: [1, true, "foo"]
 		StringSlice: ["bar", "qoox"]
 		IntSlice: [10, 20, 30]
 		UintSlice: [0b10, 0o20, 0d30]
 		BoolSlice: [false, true]
 		FloatSlice: [100.2, -50.1e20]
-		Map: {
-			key: true
-			x: 1
+		MapSlice: [
+			{a: 1, b: 2}
+			{c: "foo"}
+		]
+
+		Map: {key: true, x: 1}
+		StringMap: {a: "foo", b: "bar"}
+		IntMap: {a: 1, b: -2}
+		UintMap: {a: 1, b: 2}
+		BoolMap: {a: true, b: false}
+		FloatMap: {a: -2.019, b:2.0e20}
+		ListMap: {
+			a: [1, 2, 3]
+			b: ["foo", "bar"]
 		}
 
+		StringSliceMap: {
+			a: ["foo", "bar"]
+		}
 	`
 	err := jacl.Unmarshal(text, &p)
 	if err != nil {
@@ -256,13 +284,32 @@ func TestDecodeStruct(t *testing.T) {
 	compareValue(t, "Uint", uint(0xBEE423), p.Uint)
 	compareValue(t, "Bool", false, p.Bool)
 	compareValue(t, "Float", -3.14e10, p.Float)
+
 	compareValue(t, "Slice", []interface{}{int64(1), true, "foo"}, p.Slice)
 	compareValue(t, "StringSlice", []string{"bar", "qoox"}, p.StringSlice)
 	compareValue(t, "IntSlice", []int{10, 20, 30}, p.IntSlice)
 	compareValue(t, "UintSlice", []uint{uint(2), uint(020), uint(30)}, p.UintSlice)
 	compareValue(t, "BoolSlice", []bool{false, true}, p.BoolSlice)
 	compareValue(t, "FloatSlice", []float64{100.2, -50.1e20}, p.FloatSlice)
+	compareValue(t, "MapSlice", []map[string]interface{}{
+		map[string]interface{}{"a": int64(1), "b": int64(2)},
+		map[string]interface{}{"c": "foo"},
+	}, p.MapSlice)
+
 	compareValue(t, "Map", map[string]interface{}{"key": true, "x": int64(1)}, p.Map)
+	compareValue(t, "StringMap", map[string]string{"a": "foo", "b": "bar"}, p.StringMap)
+	compareValue(t, "IntMap", map[string]int{"a": 1, "b": -2}, p.IntMap)
+	compareValue(t, "UintMap", map[string]uint{"a": 1, "b": 2}, p.UintMap)
+	compareValue(t, "BoolMap", map[string]bool{"a": true, "b": false}, p.BoolMap)
+	compareValue(t, "FloatMap", map[string]float64{"a": -2.019, "b": 2.0e20}, p.FloatMap)
+	compareValue(t, "ListMap", map[string][]interface{}{
+		"a": []interface{}{int64(1), int64(2), int64(3)},
+		"b": []interface{}{"foo", "bar"},
+	}, p.ListMap)
+
+	compareValue(t, "StringSliceMap", map[string][]string{
+		"a": []string{"foo", "bar"},
+	}, p.StringSliceMap)
 }
 
 func compare(t *testing.T, testName string, text string, target map[string]interface{}) {
