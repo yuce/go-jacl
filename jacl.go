@@ -156,11 +156,17 @@ func Unmarshal(text string, v interface{}) (err error) {
 	}
 
 	var rm map[string]interface{}
+	var isStruct bool
+
 	// if v is map[string]interface{} decode directly in it.
 	switch m := rv.Elem().Interface().(type) {
 	case map[string]interface{}:
 		rm = m
 	default:
+		if rv.Elem().Kind() != reflect.Struct {
+			return fmt.Errorf("unmarshal error: can only unmarshal maps with string keys or structs, not: %s", reflect.TypeOf(rv.Elem()))
+		}
+		isStruct = true
 		rm = map[string]interface{}{}
 	}
 
@@ -172,7 +178,63 @@ func Unmarshal(text string, v interface{}) (err error) {
 	listener := newJaclListener(rm)
 	antlr.ParseTreeWalkerDefault.Walk(listener, p.Config())
 
+	if isStruct {
+		err = unmarshalStruct(rm, v)
+	}
+
 	return err
+}
+
+func unmarshalStruct(rm map[string]interface{}, v interface{}) error {
+	elem := reflect.ValueOf(v).Elem()
+	elemType := reflect.ValueOf(v).Elem().Type()
+	for i := 0; i < elemType.NumField(); i++ {
+		value := elem.Field(i)
+		if !value.CanSet() {
+			continue
+		}
+		field := elemType.Field(i)
+		propertyName := field.Tag.Get("jacl")
+		if propertyName == "" {
+			propertyName = field.Name
+		}
+		if configValue, ok := rm[propertyName]; ok {
+			switch t := configValue.(type) {
+			case string:
+				value.SetString(t)
+			case bool:
+				value.SetBool(t)
+			case int64:
+				value.SetInt(t)
+			case uint64:
+				value.SetUint(t)
+			case float64:
+				value.SetFloat(t)
+			case []interface{}:
+				elemType := field.Type.Elem()
+				switch elemType.Kind() {
+				case reflect.Interface:
+					// if this is a slice of interface{}, just assign it.
+					value.Set(reflect.ValueOf(t))
+				default:
+					// otherwise create and assign a slice of the given type.
+					sl := reflect.MakeSlice(field.Type, len(t), len(t))
+					for i, ti := range t {
+						sl.Index(i).Set(reflect.ValueOf(ti).Convert(elemType))
+					}
+					value.Set(sl)
+				}
+			case map[string]interface{}:
+				value.Set(reflect.ValueOf(t))
+			default:
+				return fmt.Errorf("jacl unmarshal error: don't know how to unmarshal field: '%s'", field.Name)
+			}
+		} else {
+			return fmt.Errorf("jacl unmarshal error: property not found: '%s'", propertyName)
+		}
+	}
+
+	return nil
 }
 
 type errorListener struct {

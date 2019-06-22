@@ -211,6 +211,60 @@ func TestSyntaxError(t *testing.T) {
 	}
 }
 
+func TestDecodeStruct(t *testing.T) {
+	type person struct {
+		privateField string
+		String       string
+		Int          int `jacl:"int"`
+		Uint         uint
+		Bool         bool
+		Float        float64
+		Slice        []interface{} `jacl:"slice"`
+		StringSlice  []string
+		IntSlice     []int
+		UintSlice    []uint
+		BoolSlice    []bool
+		FloatSlice   []float64
+		Map          map[string]interface{}
+	}
+	p := person{}
+	text := `
+		String: "Jane Doe"
+		int: 22
+		Uint: 0xBEE423
+		Bool: false
+		Float: -3.14e10
+		slice: [1, true, "foo"]
+		StringSlice: ["bar", "qoox"]
+		IntSlice: [10, 20, 30]
+		UintSlice: [0b10, 0o20, 0d30]
+		BoolSlice: [false, true]
+		FloatSlice: [100.2, -50.1e20]
+		Map: {
+			key: true
+			x: 1
+		}
+
+	`
+	err := jacl.Unmarshal(text, &p)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	compareValue(t, "String", "Jane Doe", p.String)
+	compareValue(t, "Int", 22, p.Int)
+	compareValue(t, "Uint", uint(0xBEE423), p.Uint)
+	compareValue(t, "Bool", false, p.Bool)
+	compareValue(t, "Float", -3.14e10, p.Float)
+	compareValue(t, "Slice", []interface{}{int64(1), true, "foo"}, p.Slice)
+	compareValue(t, "StringSlice", []string{"bar", "qoox"}, p.StringSlice)
+	compareValue(t, "IntSlice", []int{10, 20, 30}, p.IntSlice)
+	compareValue(t, "UintSlice", []uint{uint(2), uint(020), uint(30)}, p.UintSlice)
+	compareValue(t, "BoolSlice", []bool{false, true}, p.BoolSlice)
+	compareValue(t, "FloatSlice", []float64{100.2, -50.1e20}, p.FloatSlice)
+	compareValue(t, "Map", map[string]interface{}{"key": true, "x": int64(1)}, p.Map)
+}
+
 func compare(t *testing.T, testName string, text string, target map[string]interface{}) {
 	m := map[string]interface{}{}
 	err := jacl.Unmarshal(text, &m)
@@ -219,5 +273,12 @@ func compare(t *testing.T, testName string, text string, target map[string]inter
 	}
 	if !reflect.DeepEqual(target, m) {
 		t.Fatalf("%s:\n%#v\n!=\n%#v", testName, target, m)
+	}
+}
+
+func compareValue(t *testing.T, testName string, target, value interface{}) {
+	if !reflect.DeepEqual(target, value) {
+		t.Fatalf("%s:\n%#v (%s)\n!=\n%#v (%s)",
+			testName, target, reflect.TypeOf(target), value, reflect.TypeOf(value))
 	}
 }
