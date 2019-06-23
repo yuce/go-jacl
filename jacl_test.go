@@ -238,7 +238,7 @@ func TestDecodeStruct(t *testing.T) {
 		FloatMap  map[string]float64
 		ListMap   map[string][]interface{}
 
-		StringSliceMap map[string][]string
+		// StringSliceMap map[string][]string
 	}
 	p := person{}
 	text := `
@@ -270,9 +270,11 @@ func TestDecodeStruct(t *testing.T) {
 			b: ["foo", "bar"]
 		}
 
+		/*
 		StringSliceMap: {
 			a: ["foo", "bar"]
 		}
+		*/
 	`
 	err := jacl.Unmarshal(text, &p)
 	if err != nil {
@@ -307,9 +309,59 @@ func TestDecodeStruct(t *testing.T) {
 		"b": []interface{}{"foo", "bar"},
 	}, p.ListMap)
 
-	compareValue(t, "StringSliceMap", map[string][]string{
-		"a": []string{"foo", "bar"},
-	}, p.StringSliceMap)
+	/*
+		compareValue(t, "StringSliceMap", map[string][]string{
+			"a": []string{"foo", "bar"},
+		}, p.StringSliceMap)
+	*/
+}
+
+func TestTrimText(t *testing.T) {
+	text := `
+		source: trim"""
+			from __future__ import print_function
+			import sys
+
+			def main():
+				args = sys.argv[1:]
+				if args:
+					print("%s arguments passed." % len(args))
+					for i, arg in enumerate(args):
+						print("  %s. %s" % (i, arg))
+				else:
+					print("No arguments passed.")
+
+			if __name__ == "__main__":
+				main()
+			"""
+		`
+	type Doc struct {
+		Source string `jacl:"source"`
+	}
+	doc := Doc{}
+	err := jacl.Unmarshal(text, &doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	target := `from __future__ import print_function
+import sys
+
+def main():
+	args = sys.argv[1:]
+	if args:
+		print("%s arguments passed." % len(args))
+		for i, arg in enumerate(args):
+			print("  %s. %s" % (i, arg))
+	else:
+		print("No arguments passed.")
+
+if __name__ == "__main__":
+	main()`
+	if target != doc.Source {
+		t.Fatalf("trim:\n%s\n!=\n%s", target, doc.Source)
+	}
+
 }
 
 func compare(t *testing.T, testName string, text string, target map[string]interface{}) {

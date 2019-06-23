@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/antlr/antlr4/runtime/Go/antlr"
 	"github.com/yuce/go-jacl/parser"
@@ -64,8 +65,28 @@ func (rl *jaclListener) EnterLiteral(c *parser.LiteralContext) {
 		}
 		rl.currentValue = text
 	case parser.JaclParserRawStringLiteral:
-		// strip raw string prefix and suffix
-		rl.currentValue = text[3 : len(text)-3]
+		quoteIndex := strings.IndexFunc(text, func(r rune) bool {
+			return r == '\'' || r == '"'
+		})
+		if quoteIndex < 0 {
+			panic(fmt.Sprintf("invalid raw string at line: %d", startToken.GetLine()))
+		}
+		if quoteIndex > 0 {
+			funName := text[:quoteIndex]
+			if funName == "trim" {
+				// trim""" ... """
+				text, err := trimText(text[7 : len(text)-3])
+				if err != nil {
+					panic(fmt.Errorf("invalid raw string at line: %d %s", startToken.GetLine(), err.Error()))
+				}
+				rl.currentValue = text
+			} else {
+				panic(fmt.Sprintf("invalid string function: '%s' at line: %d", funName, startToken.GetLine()))
+			}
+		} else {
+			// strip raw string prefix and suffix
+			rl.currentValue = text[3 : len(text)-3]
+		}
 	case parser.JaclParserBooleanLiteral:
 		switch text {
 		case "true":
@@ -118,6 +139,77 @@ func (rl *jaclListener) popFromStack() {
 	if rl.stackTop < 0 {
 		panic("stack underflow")
 	}
+}
+
+func trimText(text string) (string, error) {
+	lines := strings.Split(text, "\n")
+	pinSet := false
+	pinPos := 0
+	newLines := make([]string, 0, len(lines))
+	for _, line := range lines {
+		trimmedLine := strings.TrimSpace(line)
+		if len(trimmedLine) == 0 {
+			if !pinSet {
+				// skip this line if the pin wasn't set and its an empty line
+				if len(trimmedLine) == 0 {
+					continue
+				}
+			}
+			// add the trimmed line instead of the original line
+			newLines = append(newLines, trimmedLine)
+			continue
+		}
+
+		leadingSpaces := countLeadingSpaces(line)
+		if !pinSet {
+			pinPos = leadingSpaces
+			pinSet = true
+		}
+		if pinPos > leadingSpaces {
+			// this line starts before the pin pos
+			return "", errors.New("inconsistent line start")
+		}
+		if pinPos < leadingSpaces {
+			leadingSpaces = pinPos
+		}
+		newLines = append(newLines, line[leadingSpaces:])
+	}
+	if len(newLines) > 0 {
+		// traverse new lines in reverse to leave out empty lines at the end
+		for lastIndex := len(newLines) - 1; lastIndex >= 0; lastIndex-- {
+			// if a non-empty line is found return the result
+			if newLines[lastIndex] != "" {
+				return strings.Join(newLines[:lastIndex+1], "\n"), nil
+			}
+		}
+	}
+
+	// this is text with all whitespace
+	return "", nil
+}
+
+func countLeadingSpaces(s string) int {
+	// Adapted from: https://github.com/golang/go/blob/master/src/strings/strings.go
+	// Fast path for ASCII: look for the first ASCII non-space byte
+	start := 0
+	for ; start < len(s); start++ {
+		c := s[start]
+		if c >= utf8.RuneSelf {
+			// If we run into a non-ASCII byte, fall back to the
+			// slower unicode-aware method on the remaining bytes
+			index := strings.IndexFunc(s[start:], func(r rune) bool {
+				return r != ' ' && r != '\t'
+			})
+			if index >= 0 {
+				return start + index
+			}
+			return start
+		}
+		if c != ' ' && c != '\t' {
+			break
+		}
+	}
+	return start
 }
 
 func parseInteger(text string) (interface{}, error) {
