@@ -73,14 +73,22 @@ func (rl *jaclListener) EnterLiteral(c *parser.LiteralContext) {
 		}
 		if quoteIndex > 0 {
 			funName := text[:quoteIndex]
-			if funName == "trim" {
+			switch funName {
+			case "trim":
 				// trim""" ... """
 				text, err := trimText(text[7 : len(text)-3])
 				if err != nil {
 					panic(fmt.Errorf("invalid raw string at line: %d %s", startToken.GetLine(), err.Error()))
 				}
 				rl.currentValue = text
-			} else {
+			case "pin":
+				// pin""" ... ""
+				text, err := pinTrimText(text[6 : len(text)-3])
+				if err != nil {
+					panic(fmt.Errorf("invalid raw string at line: %d %s", startToken.GetLine(), err.Error()))
+				}
+				rl.currentValue = text
+			default:
 				panic(fmt.Sprintf("invalid string function: '%s' at line: %d", funName, startToken.GetLine()))
 			}
 		} else {
@@ -186,6 +194,56 @@ func trimText(text string) (string, error) {
 
 	// this is text with all whitespace
 	return "", nil
+}
+
+func pinTrimText(text string) (string, error) {
+	lines := strings.Split(text, "\n")
+	pinSet := false
+	pinPos := 0
+	newLines := make([]string, 0, len(lines))
+	for _, line := range lines {
+		trimmedLine := strings.TrimSpace(line)
+		if len(trimmedLine) == 0 {
+			if !pinSet {
+				// skip this line if the pin wasn't set and its an empty line
+				if len(trimmedLine) == 0 {
+					continue
+				}
+			}
+			// pin trim the original line and add it
+			if pinPos < len(line) {
+				newLines = append(newLines, line[pinPos:])
+			} else {
+				newLines = append(newLines, trimmedLine)
+			}
+			continue
+		}
+
+		leadingSpaces := countLeadingSpaces(line)
+		if !pinSet {
+			if trimmedLine == "^" {
+				pinPos = leadingSpaces
+				pinSet = true
+				continue
+			} else {
+				return "", errors.New("pin should be the first non-space character")
+			}
+		}
+		if pinPos > leadingSpaces {
+			// this line starts before the pin pos
+			return "", errors.New("inconsistent line start")
+		}
+		if pinPos < leadingSpaces {
+			leadingSpaces = pinPos
+		}
+		newLines = append(newLines, line[leadingSpaces:])
+	}
+
+	if !pinSet {
+		return "", errors.New("no pin in text")
+	}
+
+	return strings.Join(newLines, "\n"), nil
 }
 
 func countLeadingSpaces(s string) int {

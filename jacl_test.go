@@ -2,6 +2,7 @@ package jacl_test
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/yuce/go-jacl"
@@ -361,7 +362,27 @@ if __name__ == "__main__":
 	if target != doc.Source {
 		t.Fatalf("trim:\n%s\n!=\n%s", target, doc.Source)
 	}
+}
 
+func TestPinText(t *testing.T) {
+	text := "\n\t\tText: pin\"\"\"\n\n\t\t\t^\n\t\t\t\tSome text.\n\t\t\t\t\n\t\t\tMore text.\n\"\"\"\n"
+
+	type Doc struct {
+		Text string
+	}
+	doc := Doc{}
+	err := jacl.Unmarshal(text, &doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc.Text = strings.Replace(doc.Text, "\t", ">", -1)
+
+	target := "\tSome text.\n\t\nMore text.\n"
+	target = strings.Replace(target, "\t", ">", -1)
+
+	if target != doc.Text {
+		t.Fatalf("pin:\n%s\n!=\n%s", target, doc.Text)
+	}
 }
 
 func compare(t *testing.T, testName string, text string, target map[string]interface{}) {
