@@ -245,7 +245,9 @@ func TestDecodeStruct(t *testing.T) {
 
 		// StringSliceMap map[string][]string
 
-		Struct address
+		Struct     address
+		ListStruct []address
+		MapStruct  map[string]address
 	}
 	p := person{}
 	text := `
@@ -286,6 +288,28 @@ func TestDecodeStruct(t *testing.T) {
 		Struct: {
 			Street: "Wonder Street"
 			Zip: 34001
+		}
+
+		ListStruct: [
+			{
+				Street: "Under Street"
+				Zip: 38004
+			}
+			{
+				Street: "Over Street"
+				Zip: 38005
+			}
+		]
+
+		MapStruct: {
+			primary: {
+				Street: "Under Street"
+				Zip: 38004
+			}
+			secondary: {
+				Street: "Over Street"
+				Zip: 38005
+			}
 		}
 	`
 	err := jacl.Unmarshal(text, &p)
@@ -328,6 +352,16 @@ func TestDecodeStruct(t *testing.T) {
 	*/
 
 	compareValue(t, "Struct", address{Street: "Wonder Street", Zip: 34001}, p.Struct)
+
+	compareValue(t, "ListStruct", []address{
+		address{Street: "Under Street", Zip: 38004},
+		address{Street: "Over Street", Zip: 38005},
+	}, p.ListStruct)
+
+	compareValue(t, "MapStruct", map[string]address{
+		"primary":   address{Street: "Under Street", Zip: 38004},
+		"secondary": address{Street: "Over Street", Zip: 38005},
+	}, p.MapStruct)
 }
 
 func TestTrimText(t *testing.T) {
