@@ -329,15 +329,15 @@ func Unmarshal(text string, v interface{}) (err error) {
 	antlr.ParseTreeWalkerDefault.Walk(listener, p.Config())
 
 	if isStruct {
-		err = unmarshalStruct(rm, v)
+		err = unmarshalStruct(rm, rv)
 	}
 
 	return err
 }
 
-func unmarshalStruct(rm map[string]interface{}, v interface{}) error {
-	elem := reflect.ValueOf(v).Elem()
-	elemType := reflect.ValueOf(v).Elem().Type()
+func unmarshalStruct(rm map[string]interface{}, value reflect.Value) error {
+	elem := value.Elem()
+	elemType := elem.Type()
 	for i := 0; i < elemType.NumField(); i++ {
 		value := elem.Field(i)
 		if !value.CanSet() {
@@ -375,20 +375,29 @@ func unmarshalStruct(rm map[string]interface{}, v interface{}) error {
 					value.Set(sl)
 				}
 			case map[string]interface{}:
-				elemType := field.Type.Elem()
-				switch elemType.Kind() {
-				case reflect.Interface:
-					// if this is a map of interface{}, just assign it.
-					value.Set(reflect.ValueOf(t))
-				default:
-					// otherwise create and assign a map of the given type.
-					sm := reflect.MakeMapWithSize(field.Type, len(t))
-					for tk, tv := range t {
-						tkv := reflect.ValueOf(tk)
-						tvv := reflect.ValueOf(tv).Convert(elemType)
-						sm.SetMapIndex(tkv, tvv)
+				switch field.Type.Kind() {
+				case reflect.Struct:
+					st := reflect.New(field.Type)
+					unmarshalStruct(t, st)
+					value.Set(st.Elem())
+				case reflect.Map:
+					elemType := field.Type.Elem()
+					switch elemType.Kind() {
+					case reflect.Interface:
+						// if this is a map of interface{}, just assign it.
+						value.Set(reflect.ValueOf(t))
+					default:
+						// otherwise create and assign a map of the given type.
+						sm := reflect.MakeMapWithSize(field.Type, len(t))
+						for tk, tv := range t {
+							tkv := reflect.ValueOf(tk)
+							tvv := reflect.ValueOf(tv).Convert(elemType)
+							sm.SetMapIndex(tkv, tvv)
+						}
+						value.Set(sm)
 					}
-					value.Set(sm)
+				default:
+					return fmt.Errorf("jacl unmarshal error: don't know how to unmarshal field: '%s'", field.Name)
 				}
 			default:
 				return fmt.Errorf("jacl unmarshal error: don't know how to unmarshal field: '%s'", field.Name)

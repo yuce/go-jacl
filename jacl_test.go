@@ -213,7 +213,11 @@ func TestSyntaxError(t *testing.T) {
 }
 
 func TestDecodeStruct(t *testing.T) {
-	// type oer
+	type address struct {
+		Street string
+		Zip    int
+	}
+
 	type person struct {
 		privateField string
 
@@ -240,6 +244,8 @@ func TestDecodeStruct(t *testing.T) {
 		ListMap   map[string][]interface{}
 
 		// StringSliceMap map[string][]string
+
+		Struct address
 	}
 	p := person{}
 	text := `
@@ -276,6 +282,11 @@ func TestDecodeStruct(t *testing.T) {
 			a: ["foo", "bar"]
 		}
 		*/
+
+		Struct: {
+			Street: "Wonder Street"
+			Zip: 34001
+		}
 	`
 	err := jacl.Unmarshal(text, &p)
 	if err != nil {
@@ -315,6 +326,8 @@ func TestDecodeStruct(t *testing.T) {
 			"a": []string{"foo", "bar"},
 		}, p.StringSliceMap)
 	*/
+
+	compareValue(t, "Struct", address{Street: "Wonder Street", Zip: 34001}, p.Struct)
 }
 
 func TestTrimText(t *testing.T) {
