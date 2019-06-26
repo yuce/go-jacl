@@ -86,6 +86,10 @@ func unmarshalStruct(rm map[string]interface{}, value reflect.Value) error {
 		}
 		field := elemType.Field(i)
 		propertyName := field.Tag.Get("jacl")
+		if propertyName == "-" {
+			// skip this field
+			continue
+		}
 		if propertyName == "" {
 			propertyName = field.Name
 		}
@@ -108,7 +112,6 @@ func unmarshalStruct(rm map[string]interface{}, value reflect.Value) error {
 					// if this is a slice of interface{}, just assign it.
 					value.Set(reflect.ValueOf(t))
 				default:
-					fmt.Println("--default", elemType.Kind() == reflect.Struct)
 					sl := reflect.MakeSlice(field.Type, len(t), len(t))
 					// otherwise create and assign a slice of the given type.
 					if elemType.Kind() == reflect.Struct {

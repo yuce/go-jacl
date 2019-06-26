@@ -42,13 +42,13 @@ func (rl *jaclListener) EnterLiteral(c *parser.LiteralContext) {
 	text := c.GetText()
 	switch startToken.GetTokenType() {
 	case parser.JaclParserFloatLiteral:
-		value, err := strconv.ParseFloat(text, 64)
+		value, err := strconv.ParseFloat(strings.ReplaceAll(text, "_", ""), 64)
 		if err != nil {
 			panic(err)
 		}
 		rl.currentValue = value
 	case parser.JaclParserIntegerLiteral:
-		value, err := parseInteger(text)
+		value, err := parseInteger(strings.ReplaceAll(text, "_", ""))
 		if err != nil {
 			panic(err)
 		}

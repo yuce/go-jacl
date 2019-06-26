@@ -12,7 +12,7 @@ func TestEmpty(t *testing.T) {
 	target := map[string]interface{}{}
 	compare(t, "empty", "", target)
 	compare(t, "ignore comments", `
-		# Comments are ignored
+		// Comments are ignored
 
 		/* Multiline comments
 			too
@@ -72,36 +72,57 @@ func TestSetString(t *testing.T) {
 }
 
 func TestSetUnsignedInteger(t *testing.T) {
-	target := map[string]interface{}{"mynum": uint64(21)}
-	compare(t, "set bin uint", `mynum: 0b10101`, target)
+	target := map[string]interface{}{"mynum": uint64(2)}
+	compare(t, "set bin uint", `mynum: 0b10`, target)
 
-	target = map[string]interface{}{"mynum": uint64(0123)}
-	compare(t, "set octal uint", `mynum: 0o123`, target)
+	target = map[string]interface{}{"mynum": uint64(2)}
+	compare(t, "set bin uint with dash", `mynum: 0b1_0`, target)
 
-	target = map[string]interface{}{"mynum": uint64(567)}
-	compare(t, "set decimal uint", `mynum: 0d567`, target)
+	target = map[string]interface{}{"mynum": uint64(012345670)}
+	compare(t, "set octal uint", `mynum: 0o12345670`, target)
 
-	target = map[string]interface{}{"mynum": uint64(0xBEEF)}
-	compare(t, "set hex uint", `mynum: 0xBEEF`, target)
+	target = map[string]interface{}{"mynum": uint64(012345670)}
+	compare(t, "set octal uint with dash", `mynum: 0o12_345_670`, target)
+
+	target = map[string]interface{}{"mynum": uint64(123467890)}
+	compare(t, "set decimal uint", `mynum: 0d123467890`, target)
+
+	target = map[string]interface{}{"mynum": uint64(123467890)}
+	compare(t, "set decimal uint with dash", `mynum: 0d123_467_890`, target)
+
+	target = map[string]interface{}{"mynum": uint64(0x1234567890ABCDEF)}
+	compare(t, "set hex uint", `mynum: 0x1234567890ABCDEF`, target)
+
+	target = map[string]interface{}{"mynum": uint64(0x1234567890ABCDEF)}
+	compare(t, "set hex uint with dash", `mynum: 0x1234_5678_90AB_CDEF`, target)
 }
 
 func TestSetSignedInteger(t *testing.T) {
-	target := map[string]interface{}{"mynum": int64(21)}
-	compare(t, "set int", `mynum: 21`, target)
+	target := map[string]interface{}{"mynum": int64(123467890)}
+	compare(t, "set int", `mynum: 123467890`, target)
 
-	target = map[string]interface{}{"mynum": int64(-21)}
-	compare(t, "set int negative", `mynum: -21`, target)
+	target = map[string]interface{}{"mynum": int64(123467890)}
+	compare(t, "set int with dash", `mynum: 123_467_890`, target)
 
-	target = map[string]interface{}{"mynum": int64(21)}
-	compare(t, "set int positive", `mynum: +21`, target)
+	target = map[string]interface{}{"mynum": int64(-123467890)}
+	compare(t, "set int negative", `mynum: -123467890`, target)
+
+	target = map[string]interface{}{"mynum": int64(123467890)}
+	compare(t, "set int positive", `mynum: +123467890`, target)
 }
 
 func TestSetFloat(t *testing.T) {
 	target := map[string]interface{}{"pi": float64(3.14159265358979323846264338327950288419716939937510582097494459)}
 	compare(t, "set float", `pi: 3.14159265358979323846264338327950288419716939937510582097494459`, target)
 
+	target = map[string]interface{}{"pi": float64(1233123.141592)}
+	compare(t, "set float with dash", `pi: 1_233_123.141_592`, target)
+
 	target = map[string]interface{}{"minus_pi": float64(-3.14159265358979323846264338327950288419716939937510582097494459)}
 	compare(t, "set minus float", `minus_pi: -3.14159265358979323846264338327950288419716939937510582097494459`, target)
+
+	target = map[string]interface{}{"some_num": float64(21.4e12)}
+	compare(t, "set float with exp", `some_num: 21.4e12`, target)
 
 	target = map[string]interface{}{"some_num": float64(21.4e12)}
 	compare(t, "set float with exp", `some_num: 21.4e12`, target)
@@ -248,6 +269,8 @@ func TestDecodeStruct(t *testing.T) {
 		Struct     address
 		ListStruct []address
 		MapStruct  map[string]address
+
+		SkippedField string `jacl:"-"`
 	}
 	p := person{}
 	text := `
@@ -362,6 +385,8 @@ func TestDecodeStruct(t *testing.T) {
 		"primary":   address{Street: "Under Street", Zip: 38004},
 		"secondary": address{Street: "Over Street", Zip: 38005},
 	}, p.MapStruct)
+
+	compareValue(t, "SkippedField", "", p.SkippedField)
 }
 
 func TestTrimText(t *testing.T) {
