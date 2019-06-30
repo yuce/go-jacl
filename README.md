@@ -16,7 +16,7 @@ Requirements:
 
 The following should be enough to install it:
 
-    go get github.com/yuce/jacl
+    go get github.com/yuce/go-jacl
 
 ## Usage
 
@@ -26,10 +26,10 @@ Example:
 
 ```go
 text := `
-    # Sample configuration
+    // Sample configuration
 
-    data-dir: "/tmp/data"
     bind: "https://01.pilosa.local:10101"
+    data-dir: "/tmp/data"
 
     cluster: {
         coordinator: true    
