@@ -25,10 +25,6 @@ func newJaclListener(m map[string]interface{}) *jaclListener {
 	return &jaclListener{stack: stack}
 }
 
-func (rl jaclListener) Properties() map[string]interface{} {
-	return rl.stack[0].(map[string]interface{})
-}
-
 func (rl *jaclListener) EnterMapLiteral(c *parser.MapLiteralContext) {
 	rl.pushToStack(map[string]interface{}{})
 }
