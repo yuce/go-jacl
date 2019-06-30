@@ -106,4 +106,4 @@ See the [Jacl configuration language](https://github.com/yuce/jacl) for informat
 
 ## License
 
-Licensed under [MIT](LICENSE).
+Copyright (c) 2019 Yuce Tekol. Licensed under [MIT](LICENSE).
