@@ -118,6 +118,10 @@ func (rl *jaclListener) ExitPropertyAssignment(ctx *parser.PropertyAssignmentCon
 		propertyName = propertyName[1 : len(propertyName)-1]
 	}
 	if container, ok := rl.stack[rl.stackTop].(map[string]interface{}); ok {
+		if _, ok := container[propertyName]; ok {
+			lineNum := ctx.GetStart().GetLine()
+			panic(fmt.Sprintf("repeated key found at line %d: '%s'", lineNum, propertyName))
+		}
 		container[propertyName] = rl.currentValue
 		rl.currentValue = nil
 	} else {
