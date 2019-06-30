@@ -21,6 +21,7 @@ The following should be enough to install it:
 
     go get github.com/yuce/go-jacl
 
+
 ## Usage
 
 Go-Jacl has a single function, `jacl.Unmarshal`, to decode configuration from text into a `map[string]interface{}` or a pointer to a struct.
