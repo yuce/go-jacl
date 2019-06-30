@@ -6,7 +6,7 @@ This module implements the base and the extended specifications of the [Jacl con
 
 ### 0.1.0 (2019-06-30)
 
-    * Initial release.
+* Initial release.
 
 ## Installation
 
