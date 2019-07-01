@@ -1,11 +1,15 @@
 language: go
+
 env:
   - "GO111MODULE" = "on"
+
 go:
   - "1.12"
   - master
+
 before_install:
   - go get github.com/mattn/goveralls
   - go build ./cmd/jacl
+
 script:
 - $HOME/gopath/bin/goveralls -service=travis-ci -ignore "parser"
