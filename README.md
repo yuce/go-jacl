@@ -1,5 +1,7 @@
+<!--
 <a href="https://travis-ci.org/yuce/go-jacl"><img src="https://api.travis-ci.org/yuce/go-jacl.svg?branch=master" alt="Build Status"></a>
 <a href="https://coveralls.io/github/yuce/go-jacl?branch=master"><img src="https://coveralls.io/repos/github/yuce/go-jacl/badge.svg?branch=master" alt="Coverage Status" /></a>
+-->
 
 # Go-Jacl
 
