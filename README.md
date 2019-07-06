@@ -65,29 +65,29 @@ if err != nil {
 }
 
 // Decode to a struct
-type Config struct {
-    DataDir string `jacl:"data-dir"`
-    Bind string `jacl:"bind"`
-    Cluster ClusterConfig `jacl:"cluster"`
-    TLS TLSConfig `jacl:"tls"`
-    Gossip GossipConfig `jacl:"gossip"`
-}
-
 type ClusterConfig struct {
-    Coordinator `jacl:"coordinator"`
-    SomeLegacyField `jacl:"-"` // This field is skipped.
+    Coordinator     bool   `jacl:"coordinator"`
+    SomeLegacyField string `jacl:"-"` // This field is skipped.
 }
 
 type TLSConfig struct {
-    CertificatePath `jacl:"certificate"`
-    KeyPath `jacl:"key"`
-    SkipVerify `jacl:"skip-verify"`
+    CertificatePath string `jacl:"certificate"`
+    KeyPath         string `jacl:"key"`
+    SkipVerify      bool   `jacl:"skip-verify"`
 }
 
 type GossipConfig struct {
-    Seeds []string `jacl:"seeds"`
-    Port int `jacl:"port"`
-    KeyPath string `jacl:"key"`
+    Seeds   []string `jacl:"seeds"`
+    Port    int      `jacl:"port"`
+    KeyPath string   `jacl:"key"`
+}
+
+type Config struct {
+    DataDir string        `jacl:"data-dir"`
+    Bind    string        `jacl:"bind"`
+    Cluster ClusterConfig `jacl:"cluster"`
+    TLS     TLSConfig     `jacl:"tls"`
+    Gossip  GossipConfig  `jacl:"gossip"`
 }
 
 config := Config{}
