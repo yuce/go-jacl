@@ -1,6 +1,7 @@
 package jacl_test
 
 import (
+	"math"
 	"reflect"
 	"strings"
 	"testing"
@@ -222,6 +223,15 @@ func TestSetMap(t *testing.T) {
 			key3: "value3"
 		}
 	`, target)
+}
+
+func TestDuplicateKey(t *testing.T) {
+	text := `
+		a: 42
+		a: 43
+	`
+	v := map[string]interface{}{}
+	mustNotUnmarshal(t, text, &v)
 }
 
 func TestSyntaxError(t *testing.T) {
@@ -503,7 +513,328 @@ func TestReadmeSample(t *testing.T) {
 	if !reflect.DeepEqual(target2, config2) {
 		t.Fatalf("\n%v\n!=\n%v", target2, config2)
 	}
+}
 
+func TestUnmarshalStruct(t *testing.T) {
+	type A struct {
+		A1 string
+		A2 int
+	}
+	type B struct {
+		B bool
+	}
+	type Config struct {
+		PropA A
+		PropB bool
+	}
+
+	text1 := `
+		PropA: {A1: "some-string", A2: 55}
+	`
+	text2 := `
+		PropB: true
+	`
+
+	m := map[string]interface{}{}
+	err := jacl.Unmarshal(text1, &m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = jacl.Unmarshal(text2, &m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	config := Config{}
+	err = jacl.UnmarshalStruct(m, &config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := Config{
+		PropA: A{
+			A1: "some-string",
+			A2: 55,
+		},
+		PropB: true,
+	}
+	if !reflect.DeepEqual(target, config) {
+		t.Fatalf("\n%v\n!=\n%v", target, config)
+	}
+}
+
+func TestUnmarshalBoolField(t *testing.T) {
+	type C struct {
+		A bool
+	}
+	c := C{}
+
+	mustUnmarshal(t, "A: true", &c)
+	compareValue(t, "unmarshal bool true", C{A: true}, c)
+
+	mustUnmarshal(t, "A: false", &c)
+	compareValue(t, "unmarshal bool false", C{A: false}, c)
+
+	mustNotUnmarshal(t, "A: 1", &c)
+}
+
+func TestUnmarshalIntField(t *testing.T) {
+	type C struct {
+		A int
+	}
+	c := C{}
+
+	mustUnmarshal(t, "A: 0", &c)
+	compareValue(t, "unmarshal int 0", C{A: 0}, c)
+
+	mustUnmarshal(t, "A: 9223372036854775807", &c)
+	compareValue(t, "unmarshal int MaxInt", C{A: jacl.MaxInt}, c)
+
+	mustUnmarshal(t, "A: -9223372036854775808", &c)
+	compareValue(t, "unmarshal int MinInt", C{A: jacl.MinInt}, c)
+
+	mustNotUnmarshal(t, "A: 0d10", &c)
+
+	type C8 struct {
+		A int8
+	}
+	c8 := C8{}
+
+	mustUnmarshal(t, "A: 0", &c8)
+	compareValue(t, "unmarshal int8 0", C8{A: 0}, c8)
+
+	mustUnmarshal(t, "A: 127", &c8)
+	compareValue(t, "unmarshal int8 MaxInt8", C8{A: math.MaxInt8}, c8)
+
+	mustUnmarshal(t, "A: -128", &c8)
+	compareValue(t, "unmarshal int8 MinInt8", C8{A: math.MinInt8}, c8)
+
+	mustNotUnmarshal(t, "A: 0d10", &c8)
+	mustNotUnmarshal(t, "A: 128", &c8)
+	mustNotUnmarshal(t, "A: -129", &c8)
+
+	type C16 struct {
+		A int16
+	}
+	c16 := C16{}
+
+	mustUnmarshal(t, "A: 0", &c16)
+	compareValue(t, "unmarshal int16 0", C16{A: 0}, c16)
+
+	mustUnmarshal(t, "A: 32767", &c16)
+	compareValue(t, "unmarshal int16 MaxInt16", C16{A: math.MaxInt16}, c16)
+
+	mustUnmarshal(t, "A: -32768", &c16)
+	compareValue(t, "unmarshal int16 MinInt16", C16{A: math.MinInt16}, c16)
+
+	mustNotUnmarshal(t, "A: 0d10", &c16)
+	mustNotUnmarshal(t, "A: 32768", &c16)
+	mustNotUnmarshal(t, "A: -32769", &c16)
+
+	type C32 struct {
+		A int32
+	}
+	c32 := C32{}
+
+	mustUnmarshal(t, "A: 0", &c32)
+	compareValue(t, "unmarshal int32 0", C32{A: 0}, c32)
+
+	mustUnmarshal(t, "A: 2147483647", &c32)
+	compareValue(t, "unmarshal int32 MaxInt32", C32{A: math.MaxInt32}, c32)
+
+	mustUnmarshal(t, "A: -2147483648", &c32)
+	compareValue(t, "unmarshal int32 MinInt32", C32{A: math.MinInt32}, c32)
+
+	mustNotUnmarshal(t, "A: 0d10", &c32)
+	mustNotUnmarshal(t, "A: 2147483648", &c32)
+	mustNotUnmarshal(t, "A: -2147483649", &c32)
+
+	type C64 struct {
+		A int64
+	}
+	c64 := C64{}
+
+	mustUnmarshal(t, "A: 0", &c64)
+	compareValue(t, "unmarshal int64 0", C64{A: 0}, c64)
+
+	mustUnmarshal(t, "A: 9223372036854775807", &c64)
+	compareValue(t, "unmarshal int64 MaxInt", C64{A: math.MaxInt64}, c64)
+
+	mustUnmarshal(t, "A: -9223372036854775808", &c64)
+	compareValue(t, "unmarshal int64 MinInt", C64{A: math.MinInt64}, c64)
+
+	mustNotUnmarshal(t, "A: 0d10", &c64)
+}
+
+func TestUnmarshalUintField(t *testing.T) {
+	type C struct {
+		A uint
+	}
+	c := C{}
+
+	mustUnmarshal(t, "A: 0d0", &c)
+	compareValue(t, "unmarshal uint 0", C{A: 0}, c)
+
+	mustUnmarshal(t, "A: 0xFFFFFFFFFFFFFFFF", &c)
+	compareValue(t, "unmarshal uint MaxUint", C{A: jacl.MaxUint}, c)
+
+	mustNotUnmarshal(t, "A: 10", &c)
+
+	type C8 struct {
+		A uint8
+	}
+	c8 := C8{}
+
+	mustUnmarshal(t, "A: 0d0", &c8)
+	compareValue(t, "unmarshal uint8 0", C8{A: 0}, c8)
+
+	mustUnmarshal(t, "A: 0xFF", &c8)
+	compareValue(t, "unmarshal uint8 MaxUint8", C8{A: math.MaxUint8}, c8)
+
+	mustNotUnmarshal(t, "A: 10", &c8)
+	mustNotUnmarshal(t, "A: 0x100", &c8)
+
+	type C16 struct {
+		A uint16
+	}
+	c16 := C16{}
+
+	mustUnmarshal(t, "A: 0d0", &c16)
+	compareValue(t, "unmarshal uint16 0", C16{A: 0}, c16)
+
+	mustUnmarshal(t, "A: 0xFFFF", &c16)
+	compareValue(t, "unmarshal uint16 MaxUint16", C16{A: math.MaxUint16}, c16)
+
+	mustNotUnmarshal(t, "A: 10", &c16)
+	mustNotUnmarshal(t, "A: 0x10000", &c16)
+
+	type C32 struct {
+		A uint32
+	}
+	c32 := C32{}
+
+	mustUnmarshal(t, "A: 0d0", &c32)
+	compareValue(t, "unmarshal uint32 0", C32{A: 0}, c32)
+
+	mustUnmarshal(t, "A: 0xFFFFFFFF", &c32)
+	compareValue(t, "unmarshal uint32 MaxUint32", C32{A: math.MaxUint32}, c32)
+
+	mustNotUnmarshal(t, "A: 10", &c32)
+	mustNotUnmarshal(t, "A: 0x100000000", &c32)
+
+	type C64 struct {
+		A uint64
+	}
+	c64 := C64{}
+
+	mustUnmarshal(t, "A: 0d0", &c64)
+	compareValue(t, "unmarshal uint 0", C64{A: 0}, c64)
+
+	mustUnmarshal(t, "A: 0xFFFFFFFFFFFFFFFF", &c64)
+	compareValue(t, "unmarshal uint64 MaxUint", C64{A: math.MaxUint64}, c64)
+
+	mustNotUnmarshal(t, "A: 10", &c64)
+}
+
+func TestUnmarshalFloatField(t *testing.T) {
+	type C32 struct {
+		A float32
+	}
+	c32 := C32{}
+
+	mustUnmarshal(t, "A: 0.0", &c32)
+	compareValue(t, "unmarshal float32 0", C32{A: 0}, c32)
+
+	mustUnmarshal(t, "A: 3.40282346638528859811704183484516925440e+38", &c32)
+	compareValue(t, "unmarshal float32 MaxFloat", C32{A: math.MaxFloat32}, c32)
+
+	mustUnmarshal(t, "A: -3.40282346638528859811704183484516925440e+38", &c32)
+	compareValue(t, "unmarshal float32 MinFloat", C32{A: -math.MaxFloat32}, c32)
+
+	mustNotUnmarshal(t, "A: 1", &c32)
+	mustNotUnmarshal(t, "A: 1.797693134862315708145274237317043567981e+308", &c32)
+	mustNotUnmarshal(t, "A: -1.797693134862315708145274237317043567981e+308", &c32)
+
+	type C64 struct {
+		A float64
+	}
+	c64 := C64{}
+
+	mustUnmarshal(t, "A: 0.0", &c64)
+	compareValue(t, "unmarshal float64 0", C64{A: 0}, c64)
+
+	mustUnmarshal(t, "A: 1.797693134862315708145274237317043567981e+308", &c64)
+	compareValue(t, "unmarshal float64 MaxFloat", C64{A: math.MaxFloat64}, c64)
+
+	mustUnmarshal(t, "A: -1.797693134862315708145274237317043567981e+308", &c64)
+	compareValue(t, "unmarshal float64 MinFloat", C64{A: -math.MaxFloat64}, c64)
+
+	mustNotUnmarshal(t, "A: 1", &c64)
+}
+
+func TestStructDefaults(t *testing.T) {
+	type C struct {
+		F1 string
+		F2 int
+		F3 bool
+	}
+
+	defaults := map[string]interface{}{
+		"F1": "default string",
+		"F2": 54,
+		"F3": true,
+	}
+	err := jacl.Unmarshal(`
+		F1: "modified string"
+	`, &defaults)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c := C{}
+	err = jacl.UnmarshalStruct(defaults, &c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := C{
+		F1: "modified string",
+		F2: 54,
+		F3: true,
+	}
+	compareValue(t, "struct defaults", target, c)
+}
+
+func TestMultipleText(t *testing.T) {
+	type C struct {
+		F1 string
+		F2 string
+		F3 string
+	}
+
+	texts := []string{
+		`F1: "field 1"`,
+		`F2: "field 2"`,
+		`F3: "field 3"`,
+	}
+
+	props := map[string]interface{}{}
+	for _, text := range texts {
+		err := jacl.Unmarshal(text, &props)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	config := C{}
+	err := jacl.UnmarshalStruct(props, &config)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	target := C{
+		F1: "field 1",
+		F2: "field 2",
+		F3: "field 3",
+	}
+	compareValue(t, "unmarshal multiple text", target, config)
 }
 
 func TestTrimText(t *testing.T) {
@@ -589,5 +920,19 @@ func compareValue(t *testing.T, testName string, target, value interface{}) {
 	if !reflect.DeepEqual(target, value) {
 		t.Fatalf("%s:\n%#v (%s)\n!=\n%#v (%s)",
 			testName, target, reflect.TypeOf(target), value, reflect.TypeOf(value))
+	}
+}
+
+func mustUnmarshal(t *testing.T, text string, v interface{}) {
+	err := jacl.Unmarshal(text, v)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func mustNotUnmarshal(t *testing.T, text string, v interface{}) {
+	err := jacl.Unmarshal(text, v)
+	if err == nil {
+		t.Fatalf("should have failed")
 	}
 }

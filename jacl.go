@@ -3,6 +3,7 @@ package jacl
 import (
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
 
 	"github.com/antlr/antlr4/runtime/Go/antlr"
@@ -10,6 +11,10 @@ import (
 )
 
 const maxStack = 16
+
+const MaxUint = ^uint(0)
+const MaxInt = int(MaxUint >> 1)
+const MinInt = -MaxInt - 1
 
 type jaclMap map[string]interface{}
 
@@ -55,7 +60,7 @@ func Unmarshal(text string, v interface{}) (err error) {
 		rm = m
 	default:
 		if rv.Elem().Kind() != reflect.Struct {
-			return fmt.Errorf("unmarshal error: can only unmarshal maps with string keys or structs, not: %s", reflect.TypeOf(rv.Elem()))
+			return fmt.Errorf("unmarshal error: can only unmarshal to maps with string keys or structs, not: %s", reflect.TypeOf(rv.Elem()))
 		}
 		isStruct = true
 		rm = map[string]interface{}{}
@@ -74,6 +79,32 @@ func Unmarshal(text string, v interface{}) (err error) {
 	}
 
 	return err
+}
+
+// Unmarshal decodes the map given in `m` to v.
+// `v` should be a pointer to a struct.
+func UnmarshalStruct(m map[string]interface{}, v interface{}) (err error) {
+	defer func(err *error) {
+		if r := recover(); r != nil {
+			switch rt := r.(type) {
+			case error:
+				*err = rt
+			case string:
+				*err = errors.New(rt)
+			default:
+				panic(rt)
+			}
+		}
+	}(&err)
+
+	rv := reflect.ValueOf(v)
+	if rv.Kind() != reflect.Ptr || rv.IsNil() {
+		return errors.New("non-nil pointer is required")
+	}
+	if rv.Elem().Kind() != reflect.Struct {
+		return fmt.Errorf("unmarshal error: can only unmarshal to structs, not: %s", reflect.TypeOf(rv.Elem()))
+	}
+	return unmarshalStruct(m, rv)
 }
 
 func unmarshalStruct(rm map[string]interface{}, value reflect.Value) error {
@@ -96,15 +127,65 @@ func unmarshalStruct(rm map[string]interface{}, value reflect.Value) error {
 		if configValue, ok := rm[propertyName]; ok {
 			switch t := configValue.(type) {
 			case string:
-				value.SetString(t)
+				if value.Kind() == reflect.String {
+					value.SetString(t)
+				} else {
+					return fmt.Errorf("field %s is not string", field.Name)
+				}
 			case bool:
-				value.SetBool(t)
+				if value.Kind() == reflect.Bool {
+					value.SetBool(t)
+				} else {
+					return fmt.Errorf("field %s is not bool", field.Name)
+				}
+			case int:
+				if err := setInt64(int64(t), value, field.Name); err != nil {
+					return err
+				}
+			case int8:
+				if err := setInt64(int64(t), value, field.Name); err != nil {
+					return err
+				}
+			case int16:
+				if err := setInt64(int64(t), value, field.Name); err != nil {
+					return err
+				}
+			case int32:
+				if err := setInt64(int64(t), value, field.Name); err != nil {
+					return err
+				}
 			case int64:
-				value.SetInt(t)
+				if err := setInt64(t, value, field.Name); err != nil {
+					return err
+				}
+			case uint:
+				if err := setUint64(uint64(t), value, field.Name); err != nil {
+					return err
+				}
+			case uint8:
+				if err := setUint64(uint64(t), value, field.Name); err != nil {
+					return err
+				}
+			case uint16:
+				if err := setUint64(uint64(t), value, field.Name); err != nil {
+					return err
+				}
+			case uint32:
+				if err := setUint64(uint64(t), value, field.Name); err != nil {
+					return err
+				}
 			case uint64:
-				value.SetUint(t)
+				if err := setUint64(t, value, field.Name); err != nil {
+					return err
+				}
+			case float32:
+				if err := setFloat64(float64(t), value, field.Name); err != nil {
+					return err
+				}
 			case float64:
-				value.SetFloat(t)
+				if err := setFloat64(t, value, field.Name); err != nil {
+					return err
+				}
 			case []interface{}:
 				elemType := field.Type.Elem()
 				switch elemType.Kind() {
@@ -178,5 +259,75 @@ func unmarshalStruct(rm map[string]interface{}, value reflect.Value) error {
 		}
 	}
 
+	return nil
+}
+
+func setInt64(t int64, value reflect.Value, name string) error {
+	switch value.Kind() {
+	case reflect.Int:
+		if t < int64(MinInt) || t > int64(MaxInt) {
+			return fmt.Errorf("field %s cannot store %d without under/overflow", name, t)
+		}
+	case reflect.Int8:
+		if t < int64(math.MinInt8) || t > int64(math.MaxInt8) {
+			return fmt.Errorf("field %s cannot store %d without under/overflow", name, t)
+		}
+	case reflect.Int16:
+		if t < int64(math.MinInt16) || t > int64(math.MaxInt16) {
+			return fmt.Errorf("field %s cannot store %d without under/overflow", name, t)
+		}
+	case reflect.Int32:
+		if t < int64(math.MinInt32) || t > int64(math.MaxInt32) {
+			return fmt.Errorf("field %s cannot store %d without under/overflow", name, t)
+		}
+	case reflect.Int64:
+		break
+	default:
+		return fmt.Errorf("field %s is not int", name)
+	}
+	value.SetInt(t)
+	return nil
+}
+
+func setUint64(t uint64, value reflect.Value, name string) error {
+	switch value.Kind() {
+	case reflect.Uint:
+		if t > uint64(MaxUint) {
+			return fmt.Errorf("field %s cannot store %d without overflow", name, t)
+		}
+	case reflect.Uint8:
+		if t > uint64(math.MaxUint8) {
+			return fmt.Errorf("field %s cannot store %d without overflow", name, t)
+		}
+	case reflect.Uint16:
+		if t > uint64(math.MaxUint16) {
+			return fmt.Errorf("field %s cannot store %d without overflow", name, t)
+		}
+	case reflect.Uint32:
+		if t > uint64(math.MaxUint32) {
+			return fmt.Errorf("field %s cannot store %d without overflow", name, t)
+		}
+	case reflect.Uint64:
+		break
+	default:
+		return fmt.Errorf("field %s is not uint", name)
+	}
+	value.SetUint(t)
+	return nil
+}
+
+func setFloat64(t float64, value reflect.Value, name string) error {
+	switch value.Kind() {
+	case reflect.Float32:
+		if t < float64(-math.MaxFloat32) || t > float64(math.MaxFloat32) {
+			return fmt.Errorf("field %s cannot store %f without under/overflow", name, t)
+		}
+
+	case reflect.Float64:
+		break
+	default:
+		return fmt.Errorf("field %s is not float", name)
+	}
+	value.SetFloat(t)
 	return nil
 }

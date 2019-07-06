@@ -15,6 +15,7 @@ import (
 type jaclListener struct {
 	*parser.BaseJaclListener
 	stack        []interface{}
+	keysStack    []map[string]struct{}
 	stackTop     int
 	currentValue interface{}
 }
@@ -22,15 +23,20 @@ type jaclListener struct {
 func newJaclListener(m map[string]interface{}) *jaclListener {
 	stack := make([]interface{}, maxStack)
 	stack[0] = m
-	return &jaclListener{stack: stack}
+	keysStack := make([]map[string]struct{}, maxStack)
+	keysStack[0] = map[string]struct{}{}
+	return &jaclListener{
+		stack:     stack,
+		keysStack: keysStack,
+	}
 }
 
 func (rl *jaclListener) EnterMapLiteral(c *parser.MapLiteralContext) {
-	rl.pushToStack(map[string]interface{}{})
+	rl.pushToStack(map[string]interface{}{}, true)
 }
 
 func (rl *jaclListener) EnterArrayLiteral(c *parser.ArrayLiteralContext) {
-	rl.pushToStack([]interface{}{})
+	rl.pushToStack([]interface{}{}, false)
 }
 
 func (rl *jaclListener) EnterLiteral(c *parser.LiteralContext) {
@@ -118,23 +124,27 @@ func (rl *jaclListener) ExitPropertyAssignment(ctx *parser.PropertyAssignmentCon
 		propertyName = propertyName[1 : len(propertyName)-1]
 	}
 	if container, ok := rl.stack[rl.stackTop].(map[string]interface{}); ok {
-		if _, ok := container[propertyName]; ok {
+		if _, ok := rl.keysStack[rl.stackTop][propertyName]; ok {
 			lineNum := ctx.GetStart().GetLine()
 			panic(fmt.Sprintf("repeated key found at line %d: '%s'", lineNum, propertyName))
 		}
 		container[propertyName] = rl.currentValue
+		rl.keysStack[rl.stackTop][propertyName] = struct{}{}
 		rl.currentValue = nil
 	} else {
 		panic(fmt.Sprintf("unexpected type in EXIT JaclParserRULE_propertyAssignment: %s", reflect.TypeOf(rl.stack[rl.stackTop])))
 	}
 }
 
-func (rl *jaclListener) pushToStack(item interface{}) {
+func (rl *jaclListener) pushToStack(item interface{}, createKeyStack bool) {
 	rl.stackTop++
 	if rl.stackTop > maxStack {
 		panic("stack overflow")
 	}
 	rl.stack[rl.stackTop] = item
+	if createKeyStack {
+		rl.keysStack[rl.stackTop] = map[string]struct{}{}
+	}
 }
 
 func (rl *jaclListener) popFromStack() {
