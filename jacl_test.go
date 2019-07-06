@@ -389,6 +389,123 @@ func TestDecodeStruct(t *testing.T) {
 	compareValue(t, "SkippedField", "", p.SkippedField)
 }
 
+func TestReadmeSample(t *testing.T) {
+	text := `
+    // Sample configuration
+
+    bind: "https://01.pilosa.local:10101"
+    data-dir: "/tmp/data"
+
+    cluster: {
+        coordinator: true    
+    }
+
+    tls: {
+        certificate: "pilosa.local.crt"
+        key: "pilosa.local.key"
+        skip-verify: true
+    }
+
+    gossip: {
+        seeds: [
+            "01.pilosa.local:15000"
+            "02.pilosa.local:15000"
+        ]
+        port: 15000
+        key: "pilosa.local.gossip32"
+    }
+`
+
+	// Decode to a map
+	config1 := map[string]interface{}{}
+	err := jacl.Unmarshal(text, &config1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	target1 := map[string]interface{}{
+		"bind":     "https://01.pilosa.local:10101",
+		"data-dir": "/tmp/data",
+		"cluster": map[string]interface{}{
+			"coordinator": true,
+		},
+		"tls": map[string]interface{}{
+			"certificate": "pilosa.local.crt",
+			"key":         "pilosa.local.key",
+			"skip-verify": true,
+		},
+		"gossip": map[string]interface{}{
+			"seeds": []interface{}{
+				"01.pilosa.local:15000",
+				"02.pilosa.local:15000",
+			},
+			"port": int64(15000),
+			"key":  "pilosa.local.gossip32",
+		},
+	}
+	if !reflect.DeepEqual(target1, config1) {
+		t.Fatalf("\n%v\n!=\n%v", target1, config1)
+	}
+
+	// Decode to a struct
+	type ClusterConfig struct {
+		Coordinator     bool   `jacl:"coordinator"`
+		SomeLegacyField string `jacl:"-"` // This field is skipped.
+	}
+
+	type TLSConfig struct {
+		CertificatePath string `jacl:"certificate"`
+		KeyPath         string `jacl:"key"`
+		SkipVerify      bool   `jacl:"skip-verify"`
+	}
+
+	type GossipConfig struct {
+		Seeds   []string `jacl:"seeds"`
+		Port    int      `jacl:"port"`
+		KeyPath string   `jacl:"key"`
+	}
+
+	type Config struct {
+		DataDir string        `jacl:"data-dir"`
+		Bind    string        `jacl:"bind"`
+		Cluster ClusterConfig `jacl:"cluster"`
+		TLS     TLSConfig     `jacl:"tls"`
+		Gossip  GossipConfig  `jacl:"gossip"`
+	}
+
+	config2 := Config{}
+	err = jacl.Unmarshal(text, &config2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	target2 := Config{
+		DataDir: "/tmp/data",
+		Bind:    "https://01.pilosa.local:10101",
+		Cluster: ClusterConfig{
+			Coordinator: true,
+		},
+		TLS: TLSConfig{
+			CertificatePath: "pilosa.local.crt",
+			KeyPath:         "pilosa.local.key",
+			SkipVerify:      true,
+		},
+		Gossip: GossipConfig{
+			Seeds: []string{
+				"01.pilosa.local:15000",
+				"02.pilosa.local:15000",
+			},
+			Port:    15000,
+			KeyPath: "pilosa.local.gossip32",
+		},
+	}
+
+	if !reflect.DeepEqual(target2, config2) {
+		t.Fatalf("\n%v\n!=\n%v", target2, config2)
+	}
+
+}
+
 func TestTrimText(t *testing.T) {
 	text := `
 		source: trim"""
