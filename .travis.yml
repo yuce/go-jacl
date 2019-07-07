@@ -13,4 +13,5 @@ before_install:
   - go build ./cmd/jacl
 
 script:
-- $HOME/gopath/bin/goveralls -service=travis-ci -ignore "parser"
+# - $HOME/gopath/bin/goveralls -service=travis-ci -ignore parser/jacl_base_listener.go,parser/jacl_lexer.go,parser/jacl_listener.go,parser/jacl_parser.go
+- $HOME/gopath/bin/goveralls -service=travis-ci -pkg github.com/yuce/go-jacl
