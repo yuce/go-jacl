@@ -163,14 +163,10 @@ func trimText(text string) (string, error) {
 	for _, line := range lines {
 		trimmedLine := strings.TrimSpace(line)
 		if len(trimmedLine) == 0 {
-			if !pinSet {
-				// skip this line if the pin wasn't set and its an empty line
-				if len(trimmedLine) == 0 {
-					continue
-				}
+			if pinSet {
+				// add the trimmed line instead of the original line
+				newLines = append(newLines, "")
 			}
-			// add the trimmed line instead of the original line
-			newLines = append(newLines, trimmedLine)
 			continue
 		}
 
@@ -182,8 +178,7 @@ func trimText(text string) (string, error) {
 		if pinPos > leadingSpaces {
 			// this line starts before the pin pos
 			return "", errors.New("inconsistent line start")
-		}
-		if pinPos < leadingSpaces {
+		} else if pinPos < leadingSpaces {
 			leadingSpaces = pinPos
 		}
 		newLines = append(newLines, line[leadingSpaces:])
