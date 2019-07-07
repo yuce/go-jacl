@@ -9,6 +9,7 @@ go:
 
 before_install:
   - go mod vendor
+  - go get github.com/mattn/goveralls
   - go build ./cmd/jacl
 
 script:
