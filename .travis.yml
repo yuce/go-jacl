@@ -14,4 +14,4 @@ before_install:
 
 script:
 # - $HOME/gopath/bin/goveralls -service=travis-ci -ignore parser/jacl_base_listener.go,parser/jacl_lexer.go,parser/jacl_listener.go,parser/jacl_parser.go
-- $HOME/gopath/bin/goveralls -service=travis-ci -package github.com/yuce/go-jacl -ignore parser/jacl_base_listener.go,parser/jacl_lexer.go,parser/jacl_listener.go,parser/jacl_parser.go
+- $HOME/gopath/bin/goveralls -v -show -service=travis-ci -package github.com/yuce/go-jacl -ignore parser/jacl_base_listener.go,parser/jacl_lexer.go,parser/jacl_listener.go,parser/jacl_parser.go
