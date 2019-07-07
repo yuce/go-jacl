@@ -165,9 +165,7 @@ func trimText(text string) (string, error) {
 		if len(trimmedLine) == 0 {
 			if !pinSet {
 				// skip this line if the pin wasn't set and its an empty line
-				if len(trimmedLine) == 0 {
-					continue
-				}
+				continue
 			}
 			// add the trimmed line instead of the original line
 			newLines = append(newLines, trimmedLine)

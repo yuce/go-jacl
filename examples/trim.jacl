@@ -1,4 +1,4 @@
-# Demonstrates the use of the trim function.
+// Demonstrates the use of the trim function.
 
 text: trim"""
 
