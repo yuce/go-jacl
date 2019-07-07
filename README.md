@@ -126,7 +126,7 @@ Boolean          | bool                   | bool
 Array            | []interface{}          | []interface{}, []T
 Map              | map[string]interface{} | map[string]interface{}, map[string]T
 
-In the table above `T` is any type.
+In the table above `T` is one of `bool`, `string`, `int`, `int8`, `int16`, `int32`, `int64`, `uint`, `uint8`, `uint16`, `uint32`, `uint64`, `float32`, `float64`.
 
 ### Field Underflow/Overflow
 
@@ -144,7 +144,7 @@ err := jacl.Unmarshal("Number: 128", &config)
 
 ### Default Struct Values
 
-Go-Jacl requires every field of a struct to be set on unmarshal unless a field is skipped with `jacl:"-"`. So, if a property is missing the configuration `jacl.Unmarshal` would return an error.
+Go-Jacl requires every field of a struct to be set on unmarshal unless a field is skipped with `jacl:"-"`. So, if a property is missing in the configuration `jacl.Unmarshal` would return an error.
 
 Consider the following struct:
 
@@ -155,7 +155,7 @@ type C struct {
 }
 ```
 
-In order to have a default for the field `F2`, we can pass a map with defaults to `jacl.Unmarshal`:
+In order to have defaults for fields `F1` and `F2`, we can pass a map with defaults to `jacl.Unmarshal`:
 
 ```go
 defaults := map[string]interface{}{
