@@ -155,7 +155,7 @@ type C struct {
 }
 ```
 
-In order to have defaults for fields `F1` and `F2`, we can pass a map with defaults to `jacl.Unmarshal`:
+In order to have defaults for fields `F1` and `F2`, you can pass a map with defaults to `jacl.Unmarshal`:
 
 ```go
 defaults := map[string]interface{}{
@@ -254,4 +254,4 @@ if err != nil {
 
 ## License
 
-Copyright (c) 2019 Yuce Tekol. Licensed under [MIT](LICENSE).
+Copyright (c) 2019-2021 Yuce Tekol. Licensed under [MIT](LICENSE).

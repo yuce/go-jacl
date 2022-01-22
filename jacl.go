@@ -7,6 +7,7 @@ import (
 	"reflect"
 
 	"github.com/antlr/antlr4/runtime/Go/antlr"
+
 	"github.com/yuce/go-jacl/parser"
 )
 
@@ -15,8 +16,6 @@ const maxStack = 16
 const MaxUint = ^uint(0)
 const MaxInt = int(MaxUint >> 1)
 const MinInt = -MaxInt - 1
-
-type jaclMap map[string]interface{}
 
 type errorListener struct {
 	*antlr.DefaultErrorListener
@@ -50,22 +49,19 @@ func Unmarshal(text string, v interface{}) (err error) {
 	if rv.Kind() != reflect.Ptr || rv.IsNil() {
 		return errors.New("non-nil pointer is required")
 	}
-
 	var rm map[string]interface{}
 	var isStruct bool
-
 	// if v is map[string]interface{} decode directly in it.
 	switch m := rv.Elem().Interface().(type) {
 	case map[string]interface{}:
 		rm = m
 	default:
 		if rv.Elem().Kind() != reflect.Struct {
-			return fmt.Errorf("unmarshal error: can only unmarshal to maps with string keys or structs, not: %s", reflect.TypeOf(rv.Elem()))
+			return fmt.Errorf("jacl: unmarshalling: can only unmarshal to maps with string keys or structs, not: %s", reflect.TypeOf(rv.Elem()))
 		}
 		isStruct = true
 		rm = map[string]interface{}{}
 	}
-
 	lexer := parser.NewJaclLexer(antlr.NewInputStream(text))
 	stream := antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel)
 	p := parser.NewJaclParser(stream)
@@ -73,16 +69,14 @@ func Unmarshal(text string, v interface{}) (err error) {
 	p.BuildParseTrees = true
 	listener := newJaclListener(rm)
 	antlr.ParseTreeWalkerDefault.Walk(listener, p.Config())
-
 	if isStruct {
 		err = unmarshalStruct(rm, rv)
 	}
-
 	return err
 }
 
-// Unmarshal decodes the map given in `m` to v.
-// `v` should be a pointer to a struct.
+// UnmarshalStruct decodes the map given in m to v.
+// v should be a pointer to a struct.
 func UnmarshalStruct(m map[string]interface{}, v interface{}) (err error) {
 	defer func(err *error) {
 		if r := recover(); r != nil {
@@ -96,13 +90,12 @@ func UnmarshalStruct(m map[string]interface{}, v interface{}) (err error) {
 			}
 		}
 	}(&err)
-
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Ptr || rv.IsNil() {
 		return errors.New("non-nil pointer is required")
 	}
 	if rv.Elem().Kind() != reflect.Struct {
-		return fmt.Errorf("unmarshal error: can only unmarshal to structs, not: %s", reflect.TypeOf(rv.Elem()))
+		return fmt.Errorf("jacl: unmarshalling: can only unmarshal to structs, not: %s", reflect.TypeOf(rv.Elem()))
 	}
 	return unmarshalStruct(m, rv)
 }
@@ -216,7 +209,9 @@ func unmarshalStruct(rm map[string]interface{}, value reflect.Value) error {
 				switch field.Type.Kind() {
 				case reflect.Struct:
 					st := reflect.New(field.Type)
-					unmarshalStruct(t, st)
+					if err := unmarshalStruct(t, st); err != nil {
+						return err
+					}
 					value.Set(st.Elem())
 				case reflect.Map:
 					elemType := field.Type.Elem()
@@ -231,7 +226,9 @@ func unmarshalStruct(rm map[string]interface{}, value reflect.Value) error {
 							tkv := reflect.ValueOf(tk)
 							if tvm, ok := tv.(map[string]interface{}); ok {
 								st := reflect.New(elemType)
-								unmarshalStruct(tvm, st)
+								if err := unmarshalStruct(tvm, st); err != nil {
+									return err
+								}
 								sm.SetMapIndex(tkv, st.Elem())
 							} else {
 								return fmt.Errorf("map %s doesn't contain maps", propertyName)
