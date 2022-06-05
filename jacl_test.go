@@ -9,212 +9,328 @@ import (
 	"github.com/yuce/go-jacl"
 )
 
+type TestCase struct {
+	name   string
+	text   string
+	target map[string]interface{}
+}
+
+func (tc TestCase) Run(t *testing.T) {
+	t.Run(tc.name, func(t *testing.T) {
+		compare(t, tc.text, tc.target)
+	})
+}
+
+type TestCases []TestCase
+
+func (tcs TestCases) Run(t *testing.T) {
+	for _, tc := range tcs {
+		tc.Run(t)
+	}
+}
+
 func TestEmpty(t *testing.T) {
 	target := map[string]interface{}{}
-	compare(t, "empty", "", target)
-	compare(t, "ignore comments", `
+	tcs := TestCases{
+		{name: "empty", text: "", target: target},
+		{name: "ignore comments", text: `
 		// Comments are ignored
 
 		/* Multiline comments
 			too
-		*/`, target)
+		*/`, target: target},
+	}
+	tcs.Run(t)
 }
 
 func TestPropertyName(t *testing.T) {
-	target := map[string]interface{}{"foo": "bar"}
-	compare(t, "simple property name", `foo: "bar"`, target)
-
-	target = map[string]interface{}{"foo": "bar"}
-	compare(t, "quoted property name", `"foo": "bar"`, target)
-
-	target = map[string]interface{}{"foo\\n\\t1": "bar"}
-	compare(t, "escapes are not expanded", `"foo\n\t1": "bar"`, target)
+	tcs := TestCases{
+		{name: "simple property name", text: `foo: "bar"`, target: map[string]interface{}{"foo": "bar"}},
+		{name: "quoted property name", text: `"foo": "bar"`, target: map[string]interface{}{"foo": "bar"}},
+		{name: "escapes are not expanded", text: `"foo\n\t1": "bar"`, target: map[string]interface{}{"foo\\n\\t1": "bar"}},
+	}
+	tcs.Run(t)
 }
 
 func TestSetString(t *testing.T) {
-	target := map[string]interface{}{"foo": "bar"}
-	compare(t, "set string", `foo: "bar"`, target)
-
-	target = map[string]interface{}{"fooz": `this is a
+	tcs := TestCases{
+		{name: "set string", text: `foo: "bar"`, target: map[string]interface{}{"foo": "bar"}},
+		{
+			name: "set raw string",
+			text: `fooz: '''this is a
 		multiline
-		raw string`}
-	compare(t, "set raw string", `fooz: '''this is a
+		raw string'''`,
+			target: map[string]interface{}{
+				"fooz": `this is a
 		multiline
-		raw string'''`, target)
-
-	target = map[string]interface{}{"foo": "bar\nqoox"}
-	compare(t, "set string with escape", `foo: "bar\nqoox"`, target)
-
-	target = map[string]interface{}{"fooz": `this is a
+		raw string`,
+			},
+		},
+		{
+			name:   "set string with escape",
+			text:   `foo: "bar\nqoox"`,
+			target: map[string]interface{}{"foo": "bar\nqoox"},
+		},
+		{
+			name: "set raw string with single quotes",
+			text: `fooz: '''this is a
 		multiline raw string.
-		It keeps escape\n\tcharacters.`}
-	compare(t, "set raw string with single quotes", `fooz: '''this is a
+		It keeps escape\n\tcharacters.'''`,
+			target: map[string]interface{}{
+				"fooz": `this is a
 		multiline raw string.
-		It keeps escape\n\tcharacters.'''`, target)
-
-	target = map[string]interface{}{"fooz": `this is another
-		multiline raw string.
-		It keeps escape\n\tcharacters.`}
-	compare(t, "set raw string with double quotes", `fooz: """this is another
-		multiline raw string.
-		It keeps escape\n\tcharacters."""`, target)
-
-	target = map[string]interface{}{
-		"fooz": `this is a
-		multiline '''raw''' string.
 		It keeps escape\n\tcharacters.`,
-		"barz": "yet another string",
-	}
-	compare(t, "set raw string with double quotes 2",
-		`fooz: """this is a
+			},
+		},
+		{
+			name: "set raw string with double quotes",
+			text: `fooz: """this is another
+		multiline raw string.
+		It keeps escape\n\tcharacters."""`,
+			target: map[string]interface{}{
+				"fooz": `this is another
+		multiline raw string.
+		It keeps escape\n\tcharacters.`,
+			},
+		},
+		{
+			name: "set raw string with double quotes 2",
+			text: `fooz: """this is a
 		multiline '''raw''' string.
 		It keeps escape\n\tcharacters."""
-		barz: "yet another string"`, target)
+		barz: "yet another string"`,
+			target: map[string]interface{}{
+				"fooz": `this is a
+		multiline '''raw''' string.
+		It keeps escape\n\tcharacters.`,
+				"barz": "yet another string",
+			},
+		},
+	}
+	tcs.Run(t)
 }
 
 func TestSetUnsignedInteger(t *testing.T) {
-	target := map[string]interface{}{"mynum": uint64(2)}
-	compare(t, "set bin uint", `mynum: 0b10`, target)
-
-	target = map[string]interface{}{"mynum": uint64(2)}
-	compare(t, "set bin uint with dash", `mynum: 0b1_0`, target)
-
-	target = map[string]interface{}{"mynum": uint64(012345670)}
-	compare(t, "set octal uint", `mynum: 0o12345670`, target)
-
-	target = map[string]interface{}{"mynum": uint64(012345670)}
-	compare(t, "set octal uint with dash", `mynum: 0o12_345_670`, target)
-
-	target = map[string]interface{}{"mynum": uint64(123467890)}
-	compare(t, "set decimal uint", `mynum: 0d123467890`, target)
-
-	target = map[string]interface{}{"mynum": uint64(123467890)}
-	compare(t, "set decimal uint with dash", `mynum: 0d123_467_890`, target)
-
-	target = map[string]interface{}{"mynum": uint64(0x1234567890ABCDEF)}
-	compare(t, "set hex uint", `mynum: 0x1234567890ABCDEF`, target)
-
-	target = map[string]interface{}{"mynum": uint64(0x1234567890ABCDEF)}
-	compare(t, "set hex uint with dash", `mynum: 0x1234_5678_90AB_CDEF`, target)
+	tcs := TestCases{
+		{
+			name:   "set bin uint",
+			text:   `mynum: 0b10`,
+			target: map[string]interface{}{"mynum": uint64(2)},
+		},
+		{
+			name:   "set bin uint with dash",
+			text:   `mynum: 0b1_0`,
+			target: map[string]interface{}{"mynum": uint64(2)},
+		},
+		{
+			name:   "set octal uint",
+			text:   `mynum: 0o12345670`,
+			target: map[string]interface{}{"mynum": uint64(012345670)},
+		},
+		{
+			name:   "set octal uint with dash",
+			text:   `mynum: 0o12_345_670`,
+			target: map[string]interface{}{"mynum": uint64(012345670)},
+		},
+		{
+			name:   "set decimal uint",
+			text:   `mynum: 0d123467890`,
+			target: map[string]interface{}{"mynum": uint64(123467890)},
+		},
+		{
+			name:   "set decimal uint with dash",
+			text:   `mynum: 0d123_467_890`,
+			target: map[string]interface{}{"mynum": uint64(123467890)},
+		},
+		{
+			name:   "set hex uint",
+			text:   `mynum: 0x1234567890ABCDEF`,
+			target: map[string]interface{}{"mynum": uint64(0x1234567890ABCDEF)},
+		},
+		{
+			name:   "set hex uint with dash",
+			text:   `mynum: 0x1234_5678_90AB_CDEF`,
+			target: map[string]interface{}{"mynum": uint64(0x1234567890ABCDEF)},
+		},
+	}
+	tcs.Run(t)
 }
 
 func TestSetSignedInteger(t *testing.T) {
-	target := map[string]interface{}{"mynum": int64(123467890)}
-	compare(t, "set int", `mynum: 123467890`, target)
-
-	target = map[string]interface{}{"mynum": int64(123467890)}
-	compare(t, "set int with dash", `mynum: 123_467_890`, target)
-
-	target = map[string]interface{}{"mynum": int64(-123467890)}
-	compare(t, "set int negative", `mynum: -123467890`, target)
-
-	target = map[string]interface{}{"mynum": int64(123467890)}
-	compare(t, "set int positive", `mynum: +123467890`, target)
+	tcs := TestCases{
+		{
+			name:   "set int",
+			text:   `mynum: 123467890`,
+			target: map[string]interface{}{"mynum": int64(123467890)},
+		},
+		{
+			name:   "set int with dash",
+			text:   `mynum: 123_467_890`,
+			target: map[string]interface{}{"mynum": int64(123467890)},
+		},
+		{
+			name:   "set int negative",
+			text:   `mynum: -123467890`,
+			target: map[string]interface{}{"mynum": int64(-123467890)},
+		},
+		{
+			name:   "set int positive",
+			text:   `mynum: +123467890`,
+			target: map[string]interface{}{"mynum": int64(123467890)},
+		},
+	}
+	tcs.Run(t)
 }
 
 func TestSetFloat(t *testing.T) {
-	target := map[string]interface{}{"pi": float64(3.14159265358979323846264338327950288419716939937510582097494459)}
-	compare(t, "set float", `pi: 3.14159265358979323846264338327950288419716939937510582097494459`, target)
-
-	target = map[string]interface{}{"pi": float64(1233123.141592)}
-	compare(t, "set float with dash", `pi: 1_233_123.141_592`, target)
-
-	target = map[string]interface{}{"minus_pi": float64(-3.14159265358979323846264338327950288419716939937510582097494459)}
-	compare(t, "set minus float", `minus_pi: -3.14159265358979323846264338327950288419716939937510582097494459`, target)
-
-	target = map[string]interface{}{"some_num": float64(21.4e12)}
-	compare(t, "set float with exp", `some_num: 21.4e12`, target)
-
-	target = map[string]interface{}{"some_num": float64(21.4e12)}
-	compare(t, "set float with exp", `some_num: 21.4e12`, target)
+	tcs := TestCases{
+		{
+			name:   "set float",
+			text:   `pi: 3.14159265358979323846264338327950288419716939937510582097494459`,
+			target: map[string]interface{}{"pi": float64(3.14159265358979323846264338327950288419716939937510582097494459)},
+		},
+		{
+			name:   "set float with dash",
+			text:   `pi: 1_233_123.141_592`,
+			target: map[string]interface{}{"pi": float64(1233123.141592)},
+		},
+		{
+			name:   "set minus float",
+			text:   `minus_pi: -3.14159265358979323846264338327950288419716939937510582097494459`,
+			target: map[string]interface{}{"minus_pi": float64(-3.14159265358979323846264338327950288419716939937510582097494459)},
+		},
+		{
+			name:   "set float with exp",
+			text:   `some_num: 21.4e12`,
+			target: map[string]interface{}{"some_num": float64(21.4e12)},
+		},
+		{
+			name:   "set float with exp",
+			text:   `some_num: 21.4e12`,
+			target: map[string]interface{}{"some_num": float64(21.4e12)},
+		},
+	}
+	tcs.Run(t)
 }
 
 func TestSetBool(t *testing.T) {
-	target := map[string]interface{}{"this_is_true": true}
-	compare(t, "set true", `this_is_true: true`, target)
-
-	target = map[string]interface{}{"this_is_false": false}
-	compare(t, "set false", `this_is_false: false`, target)
+	tcs := TestCases{
+		{
+			name:   "set true",
+			text:   `this_is_true: true`,
+			target: map[string]interface{}{"this_is_true": true},
+		},
+		{
+			name:   "set false",
+			text:   `this_is_false: false`,
+			target: map[string]interface{}{"this_is_false": false},
+		},
+	}
+	tcs.Run(t)
 }
 
 func TestSetList(t *testing.T) {
-	target := map[string]interface{}{"empty": []interface{}{}}
-	compare(t, "set empty list", `empty: []`, target)
-
-	target = map[string]interface{}{"ls": []interface{}{int64(1)}}
-	compare(t, "set list with one item", `ls: [1]`, target)
-
-	target = map[string]interface{}{"ls": []interface{}{int64(1), "foo"}}
-	compare(t, "set list with two items", `ls: [1 "foo"]`, target)
-
-	target = map[string]interface{}{"ls": []interface{}{int64(1), "foo"}}
-	compare(t, "set list with two items with comma", `ls: [1, "foo"]`, target)
-
-	target = map[string]interface{}{"ls": []interface{}{int64(1), "foo"}}
-	compare(t, "set list with two items multiline", `ls: [
+	tcs := TestCases{
+		{
+			name:   "set empty list",
+			text:   `empty: []`,
+			target: map[string]interface{}{"empty": []interface{}{}},
+		},
+		{
+			name:   "set list with one item",
+			text:   `ls: [1]`,
+			target: map[string]interface{}{"ls": []interface{}{int64(1)}},
+		},
+		{
+			name:   "set list with two items",
+			text:   `ls: [1 "foo"]`,
+			target: map[string]interface{}{"ls": []interface{}{int64(1), "foo"}},
+		},
+		{
+			name:   "set list with two items with comma",
+			text:   `ls: [1, "foo"]`,
+			target: map[string]interface{}{"ls": []interface{}{int64(1), "foo"}},
+		},
+		{
+			name: "set list with two items multiline",
+			text: `ls: [
 		1
 		"foo"
-	]`, target)
-
-	target = map[string]interface{}{"ls": []interface{}{[]interface{}{"foo"}, "bar"}}
-	compare(t, "set list in list", `ls: [
+	]`,
+			target: map[string]interface{}{"ls": []interface{}{int64(1), "foo"}},
+		},
+		{
+			name: "set list in list",
+			text: `ls: [
 		["foo"]
 		"bar"
-	]`, target)
+	]`,
+			target: map[string]interface{}{"ls": []interface{}{[]interface{}{"foo"}, "bar"}},
+		},
+	}
+	tcs.Run(t)
 }
 
 func TestSetMap(t *testing.T) {
-	target := map[string]interface{}{"empty": map[string]interface{}{}}
-	compare(t, "set empty map", `empty: {}`, target)
-
-	target = map[string]interface{}{"mymap": map[string]interface{}{"key1": "value1"}}
-	compare(t, "set map with one key", `mymap: {key1: "value1"}`, target)
-
-	target = map[string]interface{}{"mymap": map[string]interface{}{"key with space in it": "value1"}}
-	compare(t, "set map with one quoted key", `mymap: {"key with space in it": "value1"}`, target)
-
-	target = map[string]interface{}{"mymap": map[string]interface{}{
-		"key1": "value1",
-		"key2": int64(44),
-	}}
-	compare(t, "set map with two keys", `mymap: {key1: "value1", "key2": 44}`, target)
-
-	target = map[string]interface{}{"mymap": map[string]interface{}{
-		"key1": "value1",
-		"key2": int64(44),
-	}}
-	compare(t, "set map with two keys", `mymap: {
+	tcs := TestCases{
+		{
+			name:   "set empty map",
+			text:   `empty: {}`,
+			target: map[string]interface{}{"empty": map[string]interface{}{}},
+		},
+		{
+			name:   "set map with one key",
+			text:   `mymap: {key1: "value1"}`,
+			target: map[string]interface{}{"mymap": map[string]interface{}{"key1": "value1"}},
+		},
+		{
+			name:   "set map with one quoted key",
+			text:   `mymap: {"key with space in it": "value1"}`,
+			target: map[string]interface{}{"mymap": map[string]interface{}{"key with space in it": "value1"}},
+		},
+		{
+			name: "set map with two keys",
+			text: `mymap: {key1: "value1", "key2": 44}`,
+			target: map[string]interface{}{"mymap": map[string]interface{}{
+				"key1": "value1",
+				"key2": int64(44),
+			}},
+		},
+		{
+			name: "set map with two keys",
+			text: `mymap: {
 		key1: "value1"
 		"key2": 44
-	}`, target)
-
-	target = map[string]interface{}{"mymap": map[string]interface{}{
-		"key0": map[string]interface{}{
-			"foo": map[string]interface{}{
-				"bar": "qoox",
+	}`,
+			target: map[string]interface{}{
+				"mymap": map[string]interface{}{
+					"key1": "value1",
+					"key2": int64(44),
+				},
 			},
 		},
-		"key1": "value1",
-	}}
-	compare(t, "set map in map", `mymap: {
+		{
+			name: "set map in map",
+			text: `mymap: {
 		key0: {
 			foo: {
 				bar: "qoox"
 			}
 		}
 		key1: "value1"
-	}`, target)
-
-	target = map[string]interface{}{
-		"ma1": map[string]interface{}{
-			"key1": "value1",
-			"key2": int64(44),
+	}`,
+			target: map[string]interface{}{
+				"mymap": map[string]interface{}{
+					"key0": map[string]interface{}{
+						"foo": map[string]interface{}{"bar": "qoox"},
+					},
+					"key1": "value1",
+				},
+			},
 		},
-		"ma2": map[string]interface{}{
-			"key3": "value3",
-		},
-	}
-	compare(t, "set map with two keys", `
+		{
+			name: "set map with two keys",
+			text: `
 		ma1: {
 			key1: "value1"
 			"key2": 44
@@ -222,7 +338,17 @@ func TestSetMap(t *testing.T) {
 		ma2: {
 			key3: "value3"
 		}
-	`, target)
+	`,
+			target: map[string]interface{}{
+				"ma1": map[string]interface{}{
+					"key1": "value1",
+					"key2": int64(44),
+				},
+				"ma2": map[string]interface{}{"key3": "value3"},
+			},
+		},
+	}
+	tcs.Run(t)
 }
 
 func TestDuplicateKey(t *testing.T) {
@@ -425,7 +551,6 @@ func TestReadmeSample(t *testing.T) {
         key: "pilosa.local.gossip32"
     }
 `
-
 	// Decode to a map
 	config1 := map[string]interface{}{}
 	err := jacl.Unmarshal(text, config1)
@@ -905,14 +1030,13 @@ func TestPinText(t *testing.T) {
 	}
 }
 
-func compare(t *testing.T, testName string, text string, target map[string]interface{}) {
+func compare(t *testing.T, text string, target map[string]interface{}) {
 	m := map[string]interface{}{}
-	err := jacl.Unmarshal(text, m)
-	if err != nil {
+	if err := jacl.Unmarshal(text, m); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(target, m) {
-		t.Fatalf("%s:\n%#v\n!=\n%#v", testName, target, m)
+		t.Fatalf("%s:\n%#v\n!=\n%#v", t.Name(), target, m)
 	}
 }
 
@@ -924,15 +1048,13 @@ func compareValue(t *testing.T, testName string, target, value interface{}) {
 }
 
 func mustUnmarshal(t *testing.T, text string, v interface{}) {
-	err := jacl.Unmarshal(text, v)
-	if err != nil {
+	if err := jacl.Unmarshal(text, v); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func mustNotUnmarshal(t *testing.T, text string, v interface{}) {
-	err := jacl.Unmarshal(text, v)
-	if err == nil {
+	if err := jacl.Unmarshal(text, v); err == nil {
 		t.Fatalf("should have failed")
 	}
 }
