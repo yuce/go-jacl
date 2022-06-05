@@ -428,7 +428,7 @@ func TestReadmeSample(t *testing.T) {
 
 	// Decode to a map
 	config1 := map[string]interface{}{}
-	err := jacl.Unmarshal(text, &config1)
+	err := jacl.Unmarshal(text, config1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -536,11 +536,11 @@ func TestUnmarshalStruct(t *testing.T) {
 	`
 
 	m := map[string]interface{}{}
-	err := jacl.Unmarshal(text1, &m)
+	err := jacl.Unmarshal(text1, m)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = jacl.Unmarshal(text2, &m)
+	err = jacl.Unmarshal(text2, m)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -784,7 +784,7 @@ func TestStructDefaults(t *testing.T) {
 	}
 	err := jacl.Unmarshal(`
 		F1: "modified string"
-	`, &defaults)
+	`, defaults)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -817,7 +817,7 @@ func TestMultipleText(t *testing.T) {
 
 	props := map[string]interface{}{}
 	for _, text := range texts {
-		err := jacl.Unmarshal(text, &props)
+		err := jacl.Unmarshal(text, props)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -907,7 +907,7 @@ func TestPinText(t *testing.T) {
 
 func compare(t *testing.T, testName string, text string, target map[string]interface{}) {
 	m := map[string]interface{}{}
-	err := jacl.Unmarshal(text, &m)
+	err := jacl.Unmarshal(text, m)
 	if err != nil {
 		t.Fatal(err)
 	}

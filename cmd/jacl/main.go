@@ -18,7 +18,7 @@ func main() {
 		log.Fatal(err)
 	}
 	m := map[string]interface{}{}
-	err = jacl.Unmarshal(string(text), &m)
+	err = jacl.Unmarshal(string(text), m)
 	if err != nil {
 		log.Fatal(err)
 	}

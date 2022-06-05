@@ -29,9 +29,8 @@ func (el *errorListener) SyntaxError(recognizer antlr.Recognizer, offendingSymbo
 	panic(fmt.Sprintf("syntax error: %s line: %d column: %d symbol: %s", msg, line, column, offendingSymbol))
 }
 
-// Unmarshal decodes the Jacl configuration given in `text` to v.
-// `v` should be either a map[string]interface{},
-// or it should be a pointer to a struct.
+// Unmarshal decodes the Jacl configuration given in text to v.
+// v should be either a map[string]interface{} or it should be a pointer to a struct.
 func Unmarshal(text string, v interface{}) (err error) {
 	defer func(err *error) {
 		if r := recover(); r != nil {
@@ -46,16 +45,16 @@ func Unmarshal(text string, v interface{}) (err error) {
 		}
 	}(&err)
 	rv := reflect.ValueOf(v)
-	if rv.Kind() != reflect.Ptr || rv.IsNil() {
-		return errors.New("non-nil pointer is required")
-	}
 	var rm map[string]interface{}
 	var isStruct bool
 	// if v is map[string]interface{} decode directly in it.
-	switch m := rv.Elem().Interface().(type) {
+	switch m := v.(type) {
 	case map[string]interface{}:
 		rm = m
 	default:
+		if rv.Kind() != reflect.Ptr || rv.IsNil() {
+			return errors.New("non-nil pointer is required")
+		}
 		if rv.Elem().Kind() != reflect.Struct {
 			return fmt.Errorf("jacl: unmarshalling: can only unmarshal to maps with string keys or structs, not: %s", reflect.TypeOf(rv.Elem()))
 		}
@@ -117,145 +116,146 @@ func unmarshalStruct(rm map[string]interface{}, value reflect.Value) error {
 		if propertyName == "" {
 			propertyName = field.Name
 		}
-		if configValue, ok := rm[propertyName]; ok {
-			switch t := configValue.(type) {
-			case string:
-				if value.Kind() == reflect.String {
-					value.SetString(t)
+		configValue, ok := rm[propertyName]
+		if !ok {
+			return fmt.Errorf("jacl unmarshal error: property not found: '%s'", propertyName)
+		}
+		switch t := configValue.(type) {
+		case string:
+			if value.Kind() == reflect.String {
+				value.SetString(t)
+			} else {
+				return fmt.Errorf("field %s is not string", field.Name)
+			}
+		case bool:
+			if value.Kind() == reflect.Bool {
+				value.SetBool(t)
+			} else {
+				return fmt.Errorf("field %s is not bool", field.Name)
+			}
+		case int:
+			if err := setInt64(int64(t), value, field.Name); err != nil {
+				return err
+			}
+		case int8:
+			if err := setInt64(int64(t), value, field.Name); err != nil {
+				return err
+			}
+		case int16:
+			if err := setInt64(int64(t), value, field.Name); err != nil {
+				return err
+			}
+		case int32:
+			if err := setInt64(int64(t), value, field.Name); err != nil {
+				return err
+			}
+		case int64:
+			if err := setInt64(t, value, field.Name); err != nil {
+				return err
+			}
+		case uint:
+			if err := setUint64(uint64(t), value, field.Name); err != nil {
+				return err
+			}
+		case uint8:
+			if err := setUint64(uint64(t), value, field.Name); err != nil {
+				return err
+			}
+		case uint16:
+			if err := setUint64(uint64(t), value, field.Name); err != nil {
+				return err
+			}
+		case uint32:
+			if err := setUint64(uint64(t), value, field.Name); err != nil {
+				return err
+			}
+		case uint64:
+			if err := setUint64(t, value, field.Name); err != nil {
+				return err
+			}
+		case float32:
+			if err := setFloat64(float64(t), value, field.Name); err != nil {
+				return err
+			}
+		case float64:
+			if err := setFloat64(t, value, field.Name); err != nil {
+				return err
+			}
+		case []interface{}:
+			elemType := field.Type.Elem()
+			switch elemType.Kind() {
+			case reflect.Interface:
+				// if this is a slice of interface{}, just assign it.
+				value.Set(reflect.ValueOf(t))
+			default:
+				sl := reflect.MakeSlice(field.Type, len(t), len(t))
+				// otherwise create and assign a slice of the given type.
+				if elemType.Kind() == reflect.Struct {
+					for i, tv := range t {
+						if tvm, ok := tv.(map[string]interface{}); ok {
+							st := reflect.New(elemType)
+							if err := unmarshalStruct(tvm, st); err != nil {
+								return err
+							}
+							sl.Index(i).Set(st.Elem())
+						} else {
+							return fmt.Errorf("array %s doesn't contain maps", propertyName)
+						}
+					}
 				} else {
-					return fmt.Errorf("field %s is not string", field.Name)
+					for i, tv := range t {
+						sl.Index(i).Set(reflect.ValueOf(tv).Convert(elemType))
+					}
 				}
-			case bool:
-				if value.Kind() == reflect.Bool {
-					value.SetBool(t)
-				} else {
-					return fmt.Errorf("field %s is not bool", field.Name)
-				}
-			case int:
-				if err := setInt64(int64(t), value, field.Name); err != nil {
+				value.Set(sl)
+			}
+		case map[string]interface{}:
+			switch field.Type.Kind() {
+			case reflect.Struct:
+				st := reflect.New(field.Type)
+				if err := unmarshalStruct(t, st); err != nil {
 					return err
 				}
-			case int8:
-				if err := setInt64(int64(t), value, field.Name); err != nil {
-					return err
-				}
-			case int16:
-				if err := setInt64(int64(t), value, field.Name); err != nil {
-					return err
-				}
-			case int32:
-				if err := setInt64(int64(t), value, field.Name); err != nil {
-					return err
-				}
-			case int64:
-				if err := setInt64(t, value, field.Name); err != nil {
-					return err
-				}
-			case uint:
-				if err := setUint64(uint64(t), value, field.Name); err != nil {
-					return err
-				}
-			case uint8:
-				if err := setUint64(uint64(t), value, field.Name); err != nil {
-					return err
-				}
-			case uint16:
-				if err := setUint64(uint64(t), value, field.Name); err != nil {
-					return err
-				}
-			case uint32:
-				if err := setUint64(uint64(t), value, field.Name); err != nil {
-					return err
-				}
-			case uint64:
-				if err := setUint64(t, value, field.Name); err != nil {
-					return err
-				}
-			case float32:
-				if err := setFloat64(float64(t), value, field.Name); err != nil {
-					return err
-				}
-			case float64:
-				if err := setFloat64(t, value, field.Name); err != nil {
-					return err
-				}
-			case []interface{}:
+				value.Set(st.Elem())
+			case reflect.Map:
 				elemType := field.Type.Elem()
 				switch elemType.Kind() {
 				case reflect.Interface:
-					// if this is a slice of interface{}, just assign it.
+					// if this is a map of interface{}, just assign it.
 					value.Set(reflect.ValueOf(t))
-				default:
-					sl := reflect.MakeSlice(field.Type, len(t), len(t))
-					// otherwise create and assign a slice of the given type.
-					if elemType.Kind() == reflect.Struct {
-						for i, tv := range t {
-							if tvm, ok := tv.(map[string]interface{}); ok {
-								st := reflect.New(elemType)
-								unmarshalStruct(tvm, st)
-								sl.Index(i).Set(st.Elem())
-							} else {
-								return fmt.Errorf("array %s doesn't contain maps", propertyName)
-							}
-						}
-					} else {
-						for i, tv := range t {
-							sl.Index(i).Set(reflect.ValueOf(tv).Convert(elemType))
-						}
-					}
-					value.Set(sl)
-				}
-			case map[string]interface{}:
-				switch field.Type.Kind() {
 				case reflect.Struct:
-					st := reflect.New(field.Type)
-					if err := unmarshalStruct(t, st); err != nil {
-						return err
-					}
-					value.Set(st.Elem())
-				case reflect.Map:
-					elemType := field.Type.Elem()
-					switch elemType.Kind() {
-					case reflect.Interface:
-						// if this is a map of interface{}, just assign it.
-						value.Set(reflect.ValueOf(t))
-					case reflect.Struct:
-						// this is a map of struct
-						sm := reflect.MakeMapWithSize(field.Type, len(t))
-						for tk, tv := range t {
-							tkv := reflect.ValueOf(tk)
-							if tvm, ok := tv.(map[string]interface{}); ok {
-								st := reflect.New(elemType)
-								if err := unmarshalStruct(tvm, st); err != nil {
-									return err
-								}
-								sm.SetMapIndex(tkv, st.Elem())
-							} else {
-								return fmt.Errorf("map %s doesn't contain maps", propertyName)
+					// this is a map of struct
+					sm := reflect.MakeMapWithSize(field.Type, len(t))
+					for tk, tv := range t {
+						tkv := reflect.ValueOf(tk)
+						if tvm, ok := tv.(map[string]interface{}); ok {
+							st := reflect.New(elemType)
+							if err := unmarshalStruct(tvm, st); err != nil {
+								return err
 							}
+							sm.SetMapIndex(tkv, st.Elem())
+						} else {
+							return fmt.Errorf("map %s doesn't contain maps", propertyName)
 						}
-						value.Set(sm)
-					default:
-						// otherwise create and assign a map of the given type.
-						sm := reflect.MakeMapWithSize(field.Type, len(t))
-						for tk, tv := range t {
-							tkv := reflect.ValueOf(tk)
-							tvv := reflect.ValueOf(tv).Convert(elemType)
-							sm.SetMapIndex(tkv, tvv)
-						}
-						value.Set(sm)
 					}
+					value.Set(sm)
 				default:
-					return fmt.Errorf("jacl unmarshal error: don't know how to unmarshal field: '%s'", field.Name)
+					// otherwise create and assign a map of the given type.
+					sm := reflect.MakeMapWithSize(field.Type, len(t))
+					for tk, tv := range t {
+						tkv := reflect.ValueOf(tk)
+						tvv := reflect.ValueOf(tv).Convert(elemType)
+						sm.SetMapIndex(tkv, tvv)
+					}
+					value.Set(sm)
 				}
 			default:
 				return fmt.Errorf("jacl unmarshal error: don't know how to unmarshal field: '%s'", field.Name)
 			}
-		} else {
-			return fmt.Errorf("jacl unmarshal error: property not found: '%s'", propertyName)
+		default:
+			return fmt.Errorf("jacl unmarshal error: don't know how to unmarshal field: '%s'", field.Name)
 		}
 	}
-
 	return nil
 }
 
